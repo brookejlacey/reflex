@@ -1,0 +1,27 @@
+# Reflex — Execution Environment Configuration
+# Configures the runtime environment for all Reflex agents and flows
+
+image: python:3.11-slim
+
+setup_script:
+  - apt-get update && apt-get install -y --no-install-recommends git curl jq build-essential
+  - pip install --no-cache-dir -r requirements.txt
+
+cache:
+  key:
+    files:
+      - requirements.txt
+    prefix: reflex-deps
+  paths:
+    - .cache/pip
+    - venv/
+
+network_policy:
+  include_recommended_allowed: true
+  allowed_domains:
+    - logging.googleapis.com
+    - cloudresourcemanager.googleapis.com
+    - monitoring.googleapis.com
+    - oauth2.googleapis.com
+    - www.googleapis.com
+    - storage.googleapis.com

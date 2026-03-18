@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reflex &mdash; Autonomous Incident Response Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+/* ── Reset & Base ──────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-0:#0b0e14;--bg-1:#111720;--bg-2:#171d2a;--bg-3:#1e2636;
+  --text-0:#e8ecf4;--text-1:#a4adc0;--text-2:#6b7a96;
+  --accent:#6c5ce7;--accent2:#00cec9;
+  --critical:#ff4444;--high:#ff8800;--medium:#ffcc00;--low:#44bb44;--safe:#4488ff;
+  --radius:10px;--glow:0 0 30px rgba(108,92,231,.15);
+}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg-0);color:var(--text-0);line-height:1.6;overflow-x:hidden}
+a{color:var(--accent2);text-decoration:none}
+
+/* ── Utilities ─────────────────────────────────────────── */
+.container{max-width:1380px;margin:0 auto;padding:0 24px}
+.card{background:var(--bg-1);border:1px solid rgba(255,255,255,.05);border-radius:var(--radius);padding:28px;box-shadow:var(--glow);transition:transform .25s,box-shadow .25s}
+.card:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(108,92,231,.22)}
+.section-title{font-size:1.25rem;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+.section-title::before{content:'';width:4px;height:22px;background:linear-gradient(180deg,var(--accent),var(--accent2));border-radius:3px;display:inline-block}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.badge-critical{background:rgba(255,68,68,.15);color:var(--critical);border:1px solid rgba(255,68,68,.3)}
+.badge-high{background:rgba(255,136,0,.15);color:var(--high);border:1px solid rgba(255,136,0,.3)}
+.badge-medium{background:rgba(255,204,0,.15);color:var(--medium);border:1px solid rgba(255,204,0,.3)}
+.badge-low{background:rgba(68,187,68,.15);color:var(--low);border:1px solid rgba(68,187,68,.3)}
+.badge-safe{background:rgba(68,136,255,.15);color:var(--safe);border:1px solid rgba(68,136,255,.3)}
+
+/* ── Animations ────────────────────────────────────────── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+@keyframes countUp{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+.anim-fade{animation:fadeUp .6s ease both}
+.anim-delay-1{animation-delay:.1s}.anim-delay-2{animation-delay:.2s}.anim-delay-3{animation-delay:.3s}.anim-delay-4{animation-delay:.4s}.anim-delay-5{animation-delay:.5s}.anim-delay-6{animation-delay:.6s}
+.live-dot{width:8px;height:8px;background:var(--low);border-radius:50%;display:inline-block;animation:pulse 1.8s infinite}
+
+/* ── Header ────────────────────────────────────────────── */
+.header{background:linear-gradient(135deg,var(--bg-1) 0%,var(--bg-2) 100%);border-bottom:1px solid rgba(255,255,255,.04);padding:32px 0 0}
+.header-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.logo{font-size:2.4rem;font-weight:900;letter-spacing:-1px;background:linear-gradient(135deg,#fff 0%,var(--accent) 50%,var(--accent2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.tagline{color:var(--text-1);font-size:.95rem;margin-top:2px}
+.header-meta{text-align:right;font-size:.8rem;color:var(--text-2)}
+
+/* ── Stats Bar ─────────────────────────────────────────── */
+.stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;padding:24px 0 28px}
+.stat-card{background:var(--bg-2);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);padding:18px 20px;text-align:center;animation:countUp .5s ease both}
+.stat-value{font-size:1.9rem;font-weight:800;background:linear-gradient(135deg,var(--text-0),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-label{font-size:.72rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-2);margin-top:4px}
+
+/* ── Grid Layout ───────────────────────────────────────── */
+.grid{display:grid;gap:24px;padding-bottom:24px}
+.grid-2{grid-template-columns:1fr 1fr}
+.grid-3{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:1024px){.grid-2,.grid-3{grid-template-columns:1fr}}
+.full-width{grid-column:1/-1}
+
+/* ── Timeline ──────────────────────────────────────────── */
+.timeline{position:relative;padding-left:36px}
+.timeline::before{content:'';position:absolute;left:14px;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--accent),var(--accent2))}
+.tl-node{position:relative;margin-bottom:28px;cursor:pointer}
+.tl-dot{position:absolute;left:-30px;top:6px;width:14px;height:14px;border-radius:50%;border:2px solid var(--bg-1);z-index:1;transition:transform .2s}
+.tl-node:hover .tl-dot{transform:scale(1.4)}
+.tl-dot-critical{background:var(--critical);box-shadow:0 0 12px var(--critical)}
+.tl-dot-high{background:var(--high);box-shadow:0 0 12px var(--high)}
+.tl-dot-medium{background:var(--medium);box-shadow:0 0 12px var(--medium)}
+.tl-dot-low{background:var(--low);box-shadow:0 0 12px var(--low)}
+.tl-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tl-title{font-weight:600;font-size:.95rem}
+.tl-time{font-size:.75rem;color:var(--text-2)}
+.tl-details{margin-top:10px;padding:14px;background:var(--bg-2);border-radius:8px;font-size:.82rem;color:var(--text-1);display:none;border-left:3px solid var(--accent)}
+.tl-node.active .tl-details{display:block;animation:fadeUp .3s ease}
+.tl-details p{margin-bottom:6px}
+.tl-details strong{color:var(--text-0)}
+
+/* ── Heatmap ───────────────────────────────────────────── */
+.heatmap-grid{display:grid;grid-template-columns:140px repeat(4,1fr);gap:3px;font-size:.78rem}
+.hm-header{background:var(--bg-2);padding:10px;text-align:center;font-weight:700;color:var(--text-1);border-radius:4px}
+.hm-label{background:var(--bg-2);padding:10px;font-weight:600;display:flex;align-items:center;border-radius:4px}
+.hm-cell{padding:16px 10px;text-align:center;border-radius:4px;font-weight:700;font-size:.85rem;transition:transform .2s}
+.hm-cell:hover{transform:scale(1.08);z-index:2}
+
+/* ── Table ─────────────────────────────────────────────── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{text-align:left;padding:12px 14px;background:var(--bg-2);color:var(--text-1);font-weight:600;text-transform:uppercase;letter-spacing:.6px;font-size:.7rem;cursor:pointer;user-select:none;white-space:nowrap;border-bottom:2px solid rgba(255,255,255,.05)}
+th:hover{color:var(--text-0)}
+th .sort-arrow{opacity:.4;margin-left:4px}
+th.sorted .sort-arrow{opacity:1;color:var(--accent2)}
+td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.03)}
+tr:hover td{background:rgba(108,92,231,.06)}
+.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:.68rem;background:var(--bg-3);color:var(--text-1);margin:1px 2px}
+
+/* ── Sustainability ────────────────────────────────────── */
+.impact-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px}
+.impact-card{background:var(--bg-2);border-radius:8px;padding:20px;text-align:center;border:1px solid rgba(255,255,255,.04)}
+.impact-value{font-size:2rem;font-weight:800;margin-bottom:4px}
+.impact-label{font-size:.75rem;color:var(--text-2);text-transform:uppercase;letter-spacing:1px}
+.impact-co2 .impact-value{color:var(--low)}
+.impact-time .impact-value{color:var(--accent2)}
+.impact-tokens .impact-value{color:var(--accent)}
+
+/* ── Knowledge Graph (Canvas) ──────────────────────────── */
+#kg-canvas{width:100%;height:420px;border-radius:8px;background:var(--bg-2);cursor:grab}
+#kg-canvas:active{cursor:grabbing}
+.kg-legend{display:flex;gap:16px;margin-top:12px;font-size:.75rem;color:var(--text-2);flex-wrap:wrap}
+.kg-legend-item{display:flex;align-items:center;gap:5px}
+.kg-legend-dot{width:10px;height:10px;border-radius:50%}
+
+/* ── Footer ────────────────────────────────────────────── */
+.footer{text-align:center;padding:32px 0;font-size:.75rem;color:var(--text-2);border-top:1px solid rgba(255,255,255,.04);margin-top:12px}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     DATA  (injected from .reflex/knowledge/incidents.json)
+     ═══════════════════════════════════════════════════════ -->
+<script>
+const data = {
+  "version": "1.0",
+  "updated_at": "2026-03-16T00:00:00+00:00",
+  "stats": {
+    "total_incidents": 3,
+    "total_patterns": 5,
+    "incidents_by_severity": {"high": 2, "critical": 1},
+    "incidents_by_category": {"null_reference": 2, "resource_exhaustion": 1, "config": 1, "type_error": 1},
+    "top_recurring_patterns": [
+      {
+        "pattern": {
+          "pattern_id": "a1b2c3d4e5f6",
+          "name": "Unsafe direct dict/attribute access on nullable",
+          "category": "null_reference",
+          "risk_level": "high"
+        },
+        "occurrences": 2,
+        "incident_ids": ["INC-001", "INC-003"]
+      }
+    ],
+    "avg_resolution_time_seconds": 540.0,
+    "fix_success_rate": 1.0,
+    "total_recurrences": 1
+  },
+  "incidents": [
+    {
+      "incident_id": "INC-001",
+      "title": "Payment API 500 errors on empty cart checkout",
+      "severity": "critical",
+      "failure_type": "runtime",
+      "root_cause_summary": "Payment handler accessed cart.items[0] without checking for empty cart, causing IndexError when users clicked checkout with an empty cart.",
+      "fix_strategy": "Guard cart.items access with empty check, return 400 for empty carts",
+      "fix_type": "patch",
+      "patterns": [
+        {"pattern_id":"a1b2c3d4e5f6","name":"Unsafe direct dict/attribute access on nullable","category":"null_reference","risk_level":"high"}
+      ],
+      "affected_files": ["src/services/payment.py"],
+      "affected_services": ["payment-api"],
+      "breaking_commit": "e4f5a6b",
+      "fix_commit": "d7c8e9f",
+      "resolution_time_seconds": 480,
+      "fix_successful": true,
+      "recurrence_count": 1,
+      "related_incidents": ["INC-003"],
+      "tags": ["null-safety", "input-validation", "api"],
+      "created_at": "2026-02-15T14:32:00+00:00",
+      "resolved_at": "2026-02-15T14:40:00+00:00",
+      "lessons_learned": [
+        "Always guard collection access with empty/null checks",
+        "API endpoints should validate input state before processing",
+        "Empty state is a common edge case that needs explicit test coverage"
+      ],
+      "sustainability_metrics": {"tokens_used":12500,"carbon_grams_co2":5.8,"time_saved_minutes":165}
+    },
+    {
+      "incident_id": "INC-002",
+      "title": "Database connection pool exhaustion under load",
+      "severity": "high",
+      "failure_type": "runtime",
+      "root_cause_summary": "Connection pool max_size was set to 10 in config but the new async worker count was raised to 50, causing pool starvation under normal load.",
+      "fix_strategy": "Align pool max_size with worker count, add pool exhaustion monitoring alert",
+      "fix_type": "config_change",
+      "patterns": [
+        {"pattern_id":"b2c3d4e5f6a7","name":"Resource limit mismatch between components","category":"resource_exhaustion","risk_level":"high"},
+        {"pattern_id":"c3d4e5f6a7b8","name":"Config drift between deployment parameters","category":"config","risk_level":"medium"}
+      ],
+      "affected_files": ["config/database.yml", "config/workers.yml"],
+      "affected_services": ["payment-api", "auth-service"],
+      "breaking_commit": "f1a2b3c",
+      "fix_commit": "a4b5c6d",
+      "resolution_time_seconds": 720,
+      "fix_successful": true,
+      "recurrence_count": 0,
+      "related_incidents": [],
+      "tags": ["config", "database", "scalability"],
+      "created_at": "2026-03-01T09:15:00+00:00",
+      "resolved_at": "2026-03-01T09:27:00+00:00",
+      "lessons_learned": [
+        "Resource limits should be validated against dependent component configurations",
+        "Add CI checks that verify config consistency across components",
+        "Pool exhaustion should trigger alerts before reaching 100%"
+      ],
+      "sustainability_metrics": {"tokens_used":8200,"carbon_grams_co2":3.8,"time_saved_minutes":142}
+    },
+    {
+      "incident_id": "INC-003",
+      "title": "User listing crash on empty database",
+      "severity": "high",
+      "failure_type": "test",
+      "root_cause_summary": "PR #247 optimization replaced safe .get() with direct dict access on query result, causing TypeError when database returns empty result set.",
+      "fix_strategy": "Restore null-safe access pattern: use conditional check before accessing first_user properties",
+      "fix_type": "patch",
+      "patterns": [
+        {"pattern_id":"a1b2c3d4e5f6","name":"Unsafe direct dict/attribute access on nullable","category":"null_reference","risk_level":"high"},
+        {"pattern_id":"d4e5f6a7b8c9","name":"Premature optimization removing safety guards","category":"type_error","risk_level":"medium"}
+      ],
+      "affected_files": ["src/demo/app.py"],
+      "affected_services": ["user-service"],
+      "breaking_commit": "a3f7c91",
+      "fix_commit": null,
+      "resolution_time_seconds": 420,
+      "fix_successful": true,
+      "recurrence_count": 0,
+      "related_incidents": ["INC-001"],
+      "tags": ["null-safety", "optimization", "api"],
+      "created_at": "2026-03-16T10:00:00+00:00",
+      "resolved_at": "2026-03-16T10:07:00+00:00",
+      "lessons_learned": [
+        "Optimizations that remove safety checks should require explicit empty-state tests",
+        "Code review should flag removal of .get() / optional chaining as a risk",
+        "This pattern has recurred — consider adding a linter rule"
+      ],
+      "sustainability_metrics": {"tokens_used":15000,"carbon_grams_co2":7.0,"time_saved_minutes":173}
+    }
+  ]
+};
+</script>
+
+<!-- ═══════════════════════════════════════════════════════
+     HEADER
+     ═══════════════════════════════════════════════════════ -->
+<header class="header">
+  <div class="container">
+    <div class="header-inner">
+      <div>
+        <div class="logo">Reflex</div>
+        <div class="tagline">Autonomous Incident Response</div>
+      </div>
+      <div class="header-meta">
+        <div><span class="live-dot"></span>&ensp;Live &mdash; Knowledge graph synced</div>
+        <div id="header-updated"></div>
+      </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar" id="stats-bar"></div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════
+     MAIN CONTENT
+     ═══════════════════════════════════════════════════════ -->
+<main class="container" style="padding-top:28px">
+
+  <!-- Row 1: Timeline + Heatmap -->
+  <div class="grid grid-2">
+    <div class="card anim-fade anim-delay-1">
+      <div class="section-title">Incident Timeline</div>
+      <div class="timeline" id="timeline"></div>
+    </div>
+    <div class="card anim-fade anim-delay-2">
+      <div class="section-title">Pattern Frequency Heat Map</div>
+      <div id="heatmap"></div>
+    </div>
+  </div>
+
+  <!-- Row 2: MTTR Chart + Sustainability -->
+  <div class="grid grid-2" style="margin-top:24px">
+    <div class="card anim-fade anim-delay-3">
+      <div class="section-title">Mean Time to Resolution</div>
+      <canvas id="mttr-chart" height="260"></canvas>
+    </div>
+    <div class="card anim-fade anim-delay-4">
+      <div class="section-title">Sustainability Impact</div>
+      <div id="sustainability"></div>
+      <canvas id="sustain-chart" height="180" style="margin-top:16px"></canvas>
+    </div>
+  </div>
+
+  <!-- Row 3: Incidents Table -->
+  <div class="grid" style="margin-top:24px">
+    <div class="card anim-fade anim-delay-5 full-width">
+      <div class="section-title">Recent Incidents</div>
+      <div class="table-wrap" id="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- Row 4: Knowledge Graph -->
+  <div class="grid" style="margin-top:24px">
+    <div class="card anim-fade anim-delay-6 full-width">
+      <div class="section-title">Knowledge Graph</div>
+      <canvas id="kg-canvas"></canvas>
+      <div class="kg-legend">
+        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:var(--critical)"></div> Incident (Critical)</div>
+        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:var(--high)"></div> Incident (High)</div>
+        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:var(--accent)"></div> Pattern</div>
+        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:var(--accent2)"></div> Service</div>
+        <div class="kg-legend-item" style="margin-left:auto;color:var(--text-2);font-style:italic">Drag nodes to explore</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  Reflex &mdash; Autonomous Incident Response &middot; Knowledge graph powered by AI &middot; Built for StableHacks 2026
+</footer>
+
+<!-- ═══════════════════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════════════════ -->
+<script>
+(function(){
+"use strict";
+
+/* ── Helpers ───────────────────────────────────────────── */
+const sevColor = s => ({critical:'#ff4444',high:'#ff8800',medium:'#ffcc00',low:'#44bb44',safe:'#4488ff'}[s]||'#4488ff');
+const fmtDate = d => new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+const fmtTime = d => new Date(d).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+const fmtSec = s => s>=3600? (s/3600).toFixed(1)+'h' : s>=60? (s/60).toFixed(0)+'m' : s+'s';
+const incidents = data.incidents;
+const stats = data.stats;
+
+/* ── Header meta ───────────────────────────────────────── */
+document.getElementById('header-updated').textContent = 'Updated ' + fmtDate(data.updated_at) + ' ' + fmtTime(data.updated_at);
+
+/* ── Stats Bar ─────────────────────────────────────────── */
+const totalCarbon = incidents.reduce((a,i)=>a+i.sustainability_metrics.carbon_grams_co2,0);
+const totalTime = incidents.reduce((a,i)=>a+i.sustainability_metrics.time_saved_minutes,0);
+const statItems = [
+  {value:stats.total_incidents, label:'Total Incidents'},
+  {value:stats.total_patterns, label:'Patterns Tracked'},
+  {value:(stats.fix_success_rate*100).toFixed(0)+'%', label:'Fix Success Rate'},
+  {value:fmtSec(stats.avg_resolution_time_seconds), label:'Avg MTTR'},
+  {value:totalCarbon.toFixed(1)+'g', label:'CO\u2082 Saved'},
+];
+const sb = document.getElementById('stats-bar');
+statItems.forEach((s,i)=>{
+  const d = document.createElement('div');
+  d.className = 'stat-card';
+  d.style.animationDelay = (i*0.08)+'s';
+  d.innerHTML = `<div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div>`;
+  sb.appendChild(d);
+});
+
+/* ── Timeline ──────────────────────────────────────────── */
+const tl = document.getElementById('timeline');
+const sorted = [...incidents].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+sorted.forEach(inc=>{
+  const node = document.createElement('div');
+  node.className = 'tl-node';
+  node.innerHTML = `
+    <div class="tl-dot tl-dot-${inc.severity}"></div>
+    <div class="tl-header">
+      <span class="badge badge-${inc.severity}">${inc.severity}</span>
+      <span class="tl-title">${inc.incident_id}: ${inc.title}</span>
+    </div>
+    <div class="tl-time">${fmtDate(inc.created_at)} ${fmtTime(inc.created_at)} &mdash; Resolved in ${fmtSec(inc.resolution_time_seconds)}</div>
+    <div class="tl-details">
+      <p><strong>Root Cause:</strong> ${inc.root_cause_summary}</p>
+      <p><strong>Fix:</strong> ${inc.fix_strategy}</p>
+      <p><strong>Files:</strong> ${inc.affected_files.join(', ')}</p>
+      <p><strong>Patterns:</strong> ${inc.patterns.map(p=>p.name).join(', ')}</p>
+      ${inc.related_incidents.length?`<p><strong>Related:</strong> ${inc.related_incidents.join(', ')}</p>`:''}
+    </div>`;
+  node.addEventListener('click',()=>node.classList.toggle('active'));
+  tl.appendChild(node);
+});
+
+/* ── Heatmap ───────────────────────────────────────────── */
+const categories = ['null_reference','resource_exhaustion','config','type_error'];
+const riskLevels = ['critical','high','medium','low'];
+const catLabels = {'null_reference':'Null Reference','resource_exhaustion':'Resource Exhaustion','config':'Config Drift','type_error':'Type Error'};
+
+// Build frequency map
+const freqMap = {};
+categories.forEach(c=> riskLevels.forEach(r=> freqMap[c+'|'+r]=0));
+incidents.forEach(inc=> inc.patterns.forEach(p=>{
+  const k = p.category+'|'+p.risk_level;
+  if(k in freqMap) freqMap[k]++;
+}));
+const maxFreq = Math.max(1,...Object.values(freqMap));
+
+const hm = document.getElementById('heatmap');
+const grid = document.createElement('div');
+grid.className = 'heatmap-grid';
+// Header row
+grid.innerHTML = '<div class="hm-header"></div>' + riskLevels.map(r=>`<div class="hm-header">${r[0].toUpperCase()+r.slice(1)}</div>`).join('');
+categories.forEach(cat=>{
+  grid.innerHTML += `<div class="hm-label">${catLabels[cat]}</div>`;
+  riskLevels.forEach(r=>{
+    const v = freqMap[cat+'|'+r];
+    const intensity = v/maxFreq;
+    const col = sevColor(r);
+    const bg = intensity>0? `rgba(${hexToRgb(col)},${0.12+intensity*0.55})` : 'rgba(255,255,255,.02)';
+    grid.innerHTML += `<div class="hm-cell" style="background:${bg};color:${intensity>0?col:'var(--text-2)'}" title="${catLabels[cat]} / ${r}: ${v}">${v||'&mdash;'}</div>`;
+  });
+});
+hm.appendChild(grid);
+
+function hexToRgb(h){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return r+','+g+','+b}
+
+/* ── MTTR Chart ────────────────────────────────────────── */
+const mttrCtx = document.getElementById('mttr-chart').getContext('2d');
+const mttrLabels = sorted.map(i=> fmtDate(i.created_at));
+const mttrValues = sorted.map(i=> i.resolution_time_seconds/60);
+const baselineMTTR = 45; // "Before Reflex" baseline in minutes
+new Chart(mttrCtx, {
+  type:'line',
+  data:{
+    labels: mttrLabels,
+    datasets:[
+      {
+        label:'With Reflex (min)',
+        data: mttrValues,
+        borderColor:'#6c5ce7',
+        backgroundColor:'rgba(108,92,231,.15)',
+        fill:true,
+        tension:.35,
+        pointBackgroundColor: sorted.map(i=>sevColor(i.severity)),
+        pointRadius:7,
+        pointHoverRadius:10,
+        borderWidth:3,
+      },
+      {
+        label:'Baseline without Reflex (min)',
+        data: mttrValues.map(()=>baselineMTTR),
+        borderColor:'rgba(255,255,255,.2)',
+        borderDash:[8,6],
+        pointRadius:0,
+        borderWidth:2,
+        fill:false,
+      }
+    ]
+  },
+  options:{
+    responsive:true,
+    maintainAspectRatio:false,
+    plugins:{
+      legend:{labels:{color:'#a4adc0',font:{size:12}}},
+      tooltip:{
+        backgroundColor:'#1e2636',
+        titleColor:'#e8ecf4',
+        bodyColor:'#a4adc0',
+        borderColor:'rgba(108,92,231,.4)',
+        borderWidth:1,
+        callbacks:{
+          afterBody:(ctx)=>{
+            const idx=ctx[0].dataIndex;
+            return sorted[idx].title;
+          }
+        }
+      }
+    },
+    scales:{
+      x:{ticks:{color:'#6b7a96'},grid:{color:'rgba(255,255,255,.04)'}},
+      y:{ticks:{color:'#6b7a96',callback:v=>v+'m'},grid:{color:'rgba(255,255,255,.04)'},beginAtZero:true}
+    }
+  }
+});
+
+/* ── Sustainability ────────────────────────────────────── */
+const sDiv = document.getElementById('sustainability');
+sDiv.innerHTML = `
+  <div class="impact-cards">
+    <div class="impact-card impact-co2">
+      <div class="impact-value">${totalCarbon.toFixed(1)}g</div>
+      <div class="impact-label">CO&#8322; Avoided</div>
+    </div>
+    <div class="impact-card impact-time">
+      <div class="impact-value">${(totalTime/60).toFixed(1)}h</div>
+      <div class="impact-label">Engineer Time Saved</div>
+    </div>
+    <div class="impact-card impact-tokens">
+      <div class="impact-value">${(incidents.reduce((a,i)=>a+i.sustainability_metrics.tokens_used,0)/1000).toFixed(1)}k</div>
+      <div class="impact-label">Tokens Used</div>
+    </div>
+  </div>`;
+
+const susCtx = document.getElementById('sustain-chart').getContext('2d');
+const cumCarbon = [], cumTime = [];
+let cc=0, ct=0;
+sorted.forEach(i=>{cc+=i.sustainability_metrics.carbon_grams_co2;ct+=i.sustainability_metrics.time_saved_minutes;cumCarbon.push(cc);cumTime.push(ct)});
+new Chart(susCtx,{
+  type:'bar',
+  data:{
+    labels:sorted.map(i=>i.incident_id),
+    datasets:[
+      {label:'Cumulative CO\u2082 (g)',data:cumCarbon,backgroundColor:'rgba(68,187,68,.5)',borderColor:'#44bb44',borderWidth:1,yAxisID:'y'},
+      {label:'Cumulative Time Saved (min)',data:cumTime,backgroundColor:'rgba(0,206,201,.35)',borderColor:'#00cec9',borderWidth:1,yAxisID:'y1'}
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#a4adc0',font:{size:11}}}},
+    scales:{
+      x:{ticks:{color:'#6b7a96'},grid:{color:'rgba(255,255,255,.04)'}},
+      y:{position:'left',ticks:{color:'#44bb44',callback:v=>v+'g'},grid:{color:'rgba(255,255,255,.04)'},beginAtZero:true},
+      y1:{position:'right',ticks:{color:'#00cec9',callback:v=>v+'m'},grid:{drawOnChartArea:false},beginAtZero:true}
+    }
+  }
+});
+
+/* ── Incidents Table ───────────────────────────────────── */
+let sortCol = null, sortAsc = true;
+function renderTable(){
+  const s = [...incidents];
+  if(sortCol !== null){
+    s.sort((a,b)=>{
+      let va=a[sortCol],vb=b[sortCol];
+      if(typeof va==='string') return sortAsc?va.localeCompare(vb):vb.localeCompare(va);
+      return sortAsc?va-vb:vb-va;
+    });
+  }
+  const cols = [
+    {key:'incident_id',label:'ID'},
+    {key:'title',label:'Title'},
+    {key:'severity',label:'Severity'},
+    {key:'failure_type',label:'Category'},
+    {key:'resolution_time_seconds',label:'Resolution'},
+    {key:'fix_successful',label:'Fix Status'},
+    {key:'_patterns',label:'Patterns'},
+  ];
+  let html = '<table><thead><tr>';
+  cols.forEach(c=>{
+    const sorted = sortCol===c.key;
+    html += `<th data-col="${c.key}" class="${sorted?'sorted':''}">${c.label}<span class="sort-arrow">${sorted?(sortAsc?'&#9650;':'&#9660;'):'&#9650;'}</span></th>`;
+  });
+  html += '</tr></thead><tbody>';
+  s.forEach(inc=>{
+    html += '<tr>';
+    html += `<td style="font-weight:700;color:var(--accent2)">${inc.incident_id}</td>`;
+    html += `<td>${inc.title}</td>`;
+    html += `<td><span class="badge badge-${inc.severity}">${inc.severity}</span></td>`;
+    html += `<td>${inc.failure_type}</td>`;
+    html += `<td>${fmtSec(inc.resolution_time_seconds)}</td>`;
+    html += `<td>${inc.fix_successful?'<span style="color:var(--low)">&#10003; Fixed</span>':'<span style="color:var(--critical)">&#10007; Open</span>'}</td>`;
+    html += `<td>${inc.patterns.map(p=>`<span class="tag">${p.name.split(' ').slice(0,4).join(' ')}</span>`).join('')}</td>`;
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('table-wrap').innerHTML = html;
+  document.querySelectorAll('#table-wrap th').forEach(th=>{
+    th.addEventListener('click',()=>{
+      const col = th.dataset.col;
+      if(col==='_patterns') return;
+      if(sortCol===col) sortAsc=!sortAsc; else {sortCol=col;sortAsc=true}
+      renderTable();
+    });
+  });
+}
+renderTable();
+
+/* ── Knowledge Graph (force-directed on Canvas) ────────── */
+const canvas = document.getElementById('kg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize(){
+  const rect = canvas.parentElement.getBoundingClientRect();
+  W = canvas.width = rect.width - 56;
+  H = canvas.height = 420;
+}
+resize();
+window.addEventListener('resize',resize);
+
+// Build nodes & edges
+const nodes = [], edges = [];
+const nodeMap = {};
+let nid = 0;
+
+// Incident nodes
+incidents.forEach(inc=>{
+  const id = 'inc-'+inc.incident_id;
+  nodeMap[id] = nid;
+  nodes.push({id:nid++, label:inc.incident_id, type:'incident', severity:inc.severity, title:inc.title,
+    x:W*(.2+Math.random()*.6), y:H*(.2+Math.random()*.6), vx:0, vy:0});
+});
+
+// Pattern nodes (deduplicate)
+const patSeen = {};
+incidents.forEach(inc=> inc.patterns.forEach(p=>{
+  if(patSeen[p.pattern_id]) return;
+  patSeen[p.pattern_id] = true;
+  const id = 'pat-'+p.pattern_id;
+  nodeMap[id] = nid;
+  nodes.push({id:nid++, label:p.name.split(' ').slice(0,3).join(' '), type:'pattern', risk:p.risk_level,
+    x:W*(.2+Math.random()*.6), y:H*(.2+Math.random()*.6), vx:0, vy:0});
+}));
+
+// Service nodes (deduplicate)
+const svcSeen = {};
+incidents.forEach(inc=> inc.affected_services.forEach(s=>{
+  if(svcSeen[s]) return;
+  svcSeen[s] = true;
+  const id = 'svc-'+s;
+  nodeMap[id] = nid;
+  nodes.push({id:nid++, label:s, type:'service',
+    x:W*(.2+Math.random()*.6), y:H*(.2+Math.random()*.6), vx:0, vy:0});
+}));
+
+// Edges: incident <-> pattern
+incidents.forEach(inc=> inc.patterns.forEach(p=>{
+  edges.push({source:nodeMap['inc-'+inc.incident_id], target:nodeMap['pat-'+p.pattern_id], type:'pattern'});
+}));
+// Edges: incident <-> service
+incidents.forEach(inc=> inc.affected_services.forEach(s=>{
+  edges.push({source:nodeMap['inc-'+inc.incident_id], target:nodeMap['svc-'+s], type:'service'});
+}));
+// Edges: related incidents
+incidents.forEach(inc=> inc.related_incidents.forEach(rid=>{
+  const a=nodeMap['inc-'+inc.incident_id], b=nodeMap['inc-'+rid];
+  if(a!==undefined && b!==undefined) edges.push({source:a, target:b, type:'related'});
+}));
+
+// Force simulation
+const DAMPING = 0.92, REPULSION = 2800, SPRING = 0.008, REST = 120, GRAVITY = 0.015;
+let dragging = null, dragOff = {x:0,y:0}, hoveredNode = null;
+
+function simulate(){
+  // Repulsion
+  for(let i=0;i<nodes.length;i++){
+    for(let j=i+1;j<nodes.length;j++){
+      let dx=nodes[j].x-nodes[i].x, dy=nodes[j].y-nodes[i].y;
+      let dist=Math.sqrt(dx*dx+dy*dy)||1;
+      let f=REPULSION/(dist*dist);
+      let fx=dx/dist*f, fy=dy/dist*f;
+      nodes[i].vx-=fx; nodes[i].vy-=fy;
+      nodes[j].vx+=fx; nodes[j].vy+=fy;
+    }
+  }
+  // Springs
+  edges.forEach(e=>{
+    const a=nodes[e.source], b=nodes[e.target];
+    let dx=b.x-a.x, dy=b.y-a.y;
+    let dist=Math.sqrt(dx*dx+dy*dy)||1;
+    let f=SPRING*(dist-REST);
+    let fx=dx/dist*f, fy=dy/dist*f;
+    a.vx+=fx; a.vy+=fy;
+    b.vx-=fx; b.vy-=fy;
+  });
+  // Gravity toward center
+  nodes.forEach(n=>{
+    n.vx+=(W/2-n.x)*GRAVITY;
+    n.vy+=(H/2-n.y)*GRAVITY;
+  });
+  // Integration
+  nodes.forEach(n=>{
+    if(n===dragging) return;
+    n.vx*=DAMPING; n.vy*=DAMPING;
+    n.x+=n.vx; n.y+=n.vy;
+    n.x=Math.max(30,Math.min(W-30,n.x));
+    n.y=Math.max(30,Math.min(H-30,n.y));
+  });
+}
+
+function nodeRadius(n){ return n.type==='incident'?22:n.type==='pattern'?16:13; }
+function nodeColor(n){
+  if(n.type==='incident') return sevColor(n.severity);
+  if(n.type==='pattern') return '#6c5ce7';
+  return '#00cec9';
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+
+  // Edges
+  edges.forEach(e=>{
+    const a=nodes[e.source], b=nodes[e.target];
+    ctx.beginPath();
+    ctx.moveTo(a.x,a.y);
+    ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle = e.type==='related'?'rgba(255,68,68,.25)':e.type==='pattern'?'rgba(108,92,231,.2)':'rgba(0,206,201,.18)';
+    ctx.lineWidth = e.type==='related'?2:1.2;
+    if(e.type==='related'){ctx.setLineDash([5,4])} else {ctx.setLineDash([])}
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // Nodes
+  nodes.forEach(n=>{
+    const r = nodeRadius(n);
+    const col = nodeColor(n);
+    const isHover = hoveredNode === n;
+
+    // Glow
+    if(isHover || n.type==='incident'){
+      ctx.beginPath();
+      ctx.arc(n.x,n.y,r+(isHover?8:4),0,Math.PI*2);
+      ctx.fillStyle = col.replace(')',',0.12)').replace('rgb','rgba');
+      ctx.fill();
+    }
+
+    // Circle
+    ctx.beginPath();
+    ctx.arc(n.x,n.y,r,0,Math.PI*2);
+    const grad = ctx.createRadialGradient(n.x-r*.3,n.y-r*.3,r*.1,n.x,n.y,r);
+    grad.addColorStop(0,col);
+    grad.addColorStop(1,col.replace(')',',0.7)').replace('rgb','rgba'));
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = isHover?'#fff':'rgba(255,255,255,.15)';
+    ctx.lineWidth = isHover?2.5:1;
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = '#e8ecf4';
+    ctx.font = (n.type==='incident'?'bold 11px':'10px')+' "Segoe UI",system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if(n.type==='incident'){
+      ctx.fillText(n.label,n.x,n.y);
+    } else {
+      ctx.fillText(n.label,n.x,n.y+r+12);
+    }
+  });
+
+  // Tooltip for hovered node
+  if(hoveredNode){
+    const n = hoveredNode;
+    const txt = n.title || n.label;
+    ctx.font = '12px "Segoe UI",system-ui,sans-serif';
+    const tw = ctx.measureText(txt).width;
+    const tx = Math.min(n.x - tw/2 - 8, W - tw - 24);
+    const ty = n.y - nodeRadius(n) - 32;
+    ctx.fillStyle = 'rgba(17,23,32,.92)';
+    ctx.strokeStyle = 'rgba(108,92,231,.5)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, tx, ty, tw+16, 26, 6);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#e8ecf4';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(txt, tx+8, ty+13);
+  }
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+function findNode(mx,my){
+  for(let i=nodes.length-1;i>=0;i--){
+    const n=nodes[i], dx=mx-n.x, dy=my-n.y;
+    if(dx*dx+dy*dy < nodeRadius(n)*nodeRadius(n)*1.5) return n;
+  }
+  return null;
+}
+
+function getMousePos(e){
+  const rect=canvas.getBoundingClientRect();
+  return {x:e.clientX-rect.left, y:e.clientY-rect.top};
+}
+
+canvas.addEventListener('mousedown',e=>{
+  const p=getMousePos(e);
+  const n=findNode(p.x,p.y);
+  if(n){dragging=n;dragOff={x:p.x-n.x,y:p.y-n.y};n.vx=0;n.vy=0}
+});
+canvas.addEventListener('mousemove',e=>{
+  const p=getMousePos(e);
+  if(dragging){dragging.x=p.x-dragOff.x;dragging.y=p.y-dragOff.y}
+  hoveredNode = findNode(p.x,p.y);
+  canvas.style.cursor = hoveredNode?'pointer':'grab';
+});
+canvas.addEventListener('mouseup',()=>{dragging=null});
+canvas.addEventListener('mouseleave',()=>{dragging=null;hoveredNode=null});
+
+// Touch support
+canvas.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];const p=getMousePos(t);const n=findNode(p.x,p.y);if(n){dragging=n;dragOff={x:p.x-n.x,y:p.y-n.y}}},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();if(dragging){const t=e.touches[0];const p=getMousePos(t);dragging.x=p.x-dragOff.x;dragging.y=p.y-dragOff.y}},{passive:false});
+canvas.addEventListener('touchend',()=>{dragging=null});
+
+function loop(){simulate();draw();requestAnimationFrame(loop)}
+loop();
+
+})();
+</script>
+</body>
+</html>

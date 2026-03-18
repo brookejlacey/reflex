@@ -1,0 +1,262 @@
+# =============================================================================
+# REFLEX HARDEN — Proactive Codebase Hardening Flow
+# =============================================================================
+# Triggered after an incident is resolved by the main Reflex flow.
+# Scans the entire codebase for similar vulnerability patterns and creates
+# preventive merge requests before they become incidents.
+# =============================================================================
+
+version: "v1"
+environment: ambient
+
+components:
+
+  # =========================================================================
+  # STAGE 1: PATTERN EXTRACTION — Learn from the resolved incident
+  # =========================================================================
+  - name: "pattern_extract"
+    type: AgentComponent
+    prompt_id: "pattern_extract_prompt"
+    toolset:
+      - "read_file"
+      - "get_issue"
+      - "blob_search"
+      - "list_dir"
+      - "find_files"
+    inputs:
+      - from: "context:goal"
+        as: "incident_summary"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "pattern_result"
+      type: "object"
+      properties:
+        vulnerability_patterns:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              pattern_name:
+                type: "string"
+              description:
+                type: "string"
+              search_regex:
+                type: "string"
+              risk_level:
+                type: "string"
+                enum: ["critical", "high", "medium", "low"]
+            required: ["pattern_name", "description", "search_regex", "risk_level"]
+        anti_patterns:
+          type: "array"
+          items:
+            type: "string"
+      required: ["vulnerability_patterns"]
+    ui_log_events:
+      - "on_agent_final_answer"
+
+  # =========================================================================
+  # STAGE 2: CODEBASE SCAN — Find all instances of vulnerability patterns
+  # =========================================================================
+  - name: "codebase_scan"
+    type: AgentComponent
+    prompt_id: "codebase_scan_prompt"
+    toolset:
+      - "read_file"
+      - "blob_search"
+      - "find_files"
+      - "list_dir"
+      - "list_repository_tree"
+    inputs:
+      - from: "context:goal"
+        as: "incident_summary"
+      - from: "context:pattern_extract.final_answer"
+        as: "patterns"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "scan_result"
+      type: "object"
+      properties:
+        vulnerabilities_found:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              file_path:
+                type: "string"
+              line_range:
+                type: "string"
+              pattern_matched:
+                type: "string"
+              risk_level:
+                type: "string"
+              suggested_fix:
+                type: "string"
+            required: ["file_path", "pattern_matched", "risk_level", "suggested_fix"]
+        total_instances:
+          type: "integer"
+        files_scanned:
+          type: "integer"
+      required: ["vulnerabilities_found", "total_instances", "files_scanned"]
+    ui_log_events:
+      - "on_agent_final_answer"
+
+  # =========================================================================
+  # STAGE 3: PREVENTIVE FIX — Apply fixes across the codebase
+  # =========================================================================
+  - name: "preventive_fix"
+    type: AgentComponent
+    prompt_id: "preventive_fix_prompt"
+    toolset:
+      - "read_file"
+      - "edit_file"
+      - "create_file_with_contents"
+      - "blob_search"
+      - "find_files"
+      - "list_dir"
+      - "create_commit"
+      - "create_merge_request"
+      - "create_issue_note"
+    inputs:
+      - from: "context:goal"
+        as: "incident_summary"
+      - from: "context:pattern_extract.final_answer"
+        as: "patterns"
+      - from: "context:codebase_scan.final_answer"
+        as: "scan_results"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "preventive_fix_result"
+      type: "object"
+      properties:
+        fixes_applied:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              file_path:
+                type: "string"
+              change_description:
+                type: "string"
+            required: ["file_path", "change_description"]
+        merge_request_url:
+          type: "string"
+        hardening_summary:
+          type: "string"
+        vulnerabilities_remaining:
+          type: "integer"
+      required: ["fixes_applied", "hardening_summary"]
+    ui_log_events:
+      - "on_agent_final_answer"
+
+prompts:
+
+  - prompt_id: "pattern_extract_prompt"
+    name: "Reflex Pattern Extractor"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the PATTERN EXTRACTION AGENT of Reflex Harden.
+        Your job is to analyze a resolved incident and extract generalizable vulnerability
+        patterns that might exist elsewhere in the codebase.
+
+        ## Your Responsibilities
+        1. Read the incident summary and understand the root cause
+        2. Generalize the specific bug into abstract vulnerability patterns
+        3. Create search patterns (regex) that can find similar issues
+        4. Classify each pattern by risk level
+
+        ## Pattern Examples
+        - "Unchecked null return from database query" → search for similar query patterns without null checks
+        - "Missing input validation on API endpoint" → search for other endpoints with similar patterns
+        - "Hardcoded credentials in config" → search for credential patterns across configs
+        - "Race condition in async handler" → search for similar async patterns without locks
+
+        ## Be Thorough
+        Think beyond the exact bug. What CLASS of bug is this? What other manifestations could exist?
+      user: |
+        Analyze this resolved incident and extract vulnerability patterns for codebase-wide scanning:
+
+        {{incident_summary}}
+      placeholder: history
+    params:
+      timeout: 180
+
+  - prompt_id: "codebase_scan_prompt"
+    name: "Reflex Codebase Scanner"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the CODEBASE SCANNER of Reflex Harden.
+        Your job is to systematically scan the entire codebase for instances of the
+        vulnerability patterns identified by the Pattern Extractor.
+
+        ## Your Responsibilities
+        1. Use blob_search with the provided regex patterns
+        2. Read each matching file to verify it's a real vulnerability (not a false positive)
+        3. Assess the risk level of each finding
+        4. Suggest a specific fix for each vulnerability found
+        5. Track scan coverage metrics
+
+        ## Important
+        - Verify every match — don't report false positives
+        - Check if the pattern is already handled (try/catch, null check, validation)
+        - Prioritize findings by risk level
+        - Be specific about what needs to change in each file
+      user: |
+        Scan the codebase for these vulnerability patterns:
+
+        INCIDENT CONTEXT:
+        {{incident_summary}}
+
+        PATTERNS TO SEARCH:
+        {{patterns}}
+      placeholder: history
+    params:
+      timeout: 300
+
+  - prompt_id: "preventive_fix_prompt"
+    name: "Reflex Preventive Fixer"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the PREVENTIVE FIX AGENT of Reflex Harden.
+        Your job is to apply fixes across the codebase for all identified vulnerabilities
+        and create a hardening merge request.
+
+        ## Your Responsibilities
+        1. Apply the suggested fix for each confirmed vulnerability
+        2. Follow existing code patterns and conventions
+        3. Create a single commit with all preventive fixes
+        4. Create a merge request titled "[Reflex Harden] Preventive fixes for <pattern>"
+        5. Include a comprehensive description of all changes
+
+        ## Fix Principles
+        - Fix only confirmed vulnerabilities from the scan results
+        - Keep each fix minimal and consistent with surrounding code
+        - Don't refactor or improve unrelated code
+        - If a fix is risky, skip it and note it in vulnerabilities_remaining
+      user: |
+        Apply preventive fixes for all confirmed vulnerabilities:
+
+        INCIDENT CONTEXT:
+        {{incident_summary}}
+
+        VULNERABILITY PATTERNS:
+        {{patterns}}
+
+        SCAN RESULTS:
+        {{scan_results}}
+      placeholder: history
+    params:
+      timeout: 300
+
+routers:
+  - from: "pattern_extract"
+    to: "codebase_scan"
+  - from: "codebase_scan"
+    to: "preventive_fix"
+  - from: "preventive_fix"
+    to: "end"
+
+flow:
+  entry_point: "pattern_extract"

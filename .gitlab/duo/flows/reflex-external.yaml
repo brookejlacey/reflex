@@ -1,0 +1,50 @@
+# =============================================================================
+# REFLEX EXTERNAL AGENT — Claude Code-powered deep analysis
+# =============================================================================
+# An external agent that uses Claude Code with full shell access for
+# deeper incident analysis capabilities beyond the built-in toolset:
+# - Git bisect to find breaking commits
+# - GCP Cloud Logging API queries
+# - Complex code analysis and pattern matching
+# - Automated test execution
+# =============================================================================
+
+injectGatewayToken: true
+image: python:3.11-slim
+
+commands:
+  # Install system dependencies
+  - apt-get update && apt-get install -y --no-install-recommends git curl jq
+
+  # Install Python dependencies for GCP integration
+  - pip install --no-cache-dir google-cloud-logging google-cloud-monitoring requests
+
+  # Install glab CLI for GitLab operations
+  - |
+    curl -sL "https://gitlab.com/gitlab-org/cli/-/releases/v1.46.1/downloads/glab_1.46.1_linux_amd64.deb" -o glab.deb
+    dpkg -i glab.deb && rm glab.deb
+
+  # Configure git and glab
+  - git config --global user.email "reflex-agent@gitlab.com"
+  - git config --global user.name "Reflex Agent"
+  - echo "$AI_FLOW_GITLAB_TOKEN" | glab auth login --hostname "$AI_FLOW_GITLAB_HOSTNAME" --stdin
+
+  # Set up Anthropic proxy for Claude Code
+  - export ANTHROPIC_AUTH_TOKEN=$AI_FLOW_AI_GATEWAY_TOKEN
+  - export ANTHROPIC_CUSTOM_HEADERS=$AI_FLOW_AI_GATEWAY_HEADERS
+  - export ANTHROPIC_BASE_URL="https://cloud.gitlab.com/ai/v1/proxy/anthropic"
+
+  # Run the Reflex deep analysis
+  - |
+    python3 src/agents/deep_analyzer.py \
+      --project-path "$AI_FLOW_PROJECT_PATH" \
+      --gitlab-token "$AI_FLOW_GITLAB_TOKEN" \
+      --gitlab-hostname "$AI_FLOW_GITLAB_HOSTNAME" \
+      --gcp-project "${GOOGLE_CLOUD_PROJECT:-}" \
+      --context "$AI_FLOW_CONTEXT" \
+      --input "$AI_FLOW_INPUT"
+
+variables:
+  - GOOGLE_CLOUD_PROJECT
+  - GOOGLE_CREDENTIALS
+  - ADDITIONAL_INSTRUCTIONS

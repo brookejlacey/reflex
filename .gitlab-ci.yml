@@ -1,0 +1,117 @@
+# =============================================================================
+# Reflex CI/CD Pipeline
+# =============================================================================
+# Validates flow YAML, runs tests, and ensures project quality.
+# =============================================================================
+
+stages:
+  - validate
+  - test
+  - security
+
+# ---------------------------------------------------------------------------
+# VALIDATE — Ensure flow YAMLs and project structure are correct
+# ---------------------------------------------------------------------------
+
+validate:yaml:
+  stage: validate
+  image: python:3.11-slim
+  script:
+    - pip install pyyaml
+    - python -c "
+      import yaml, sys, glob;
+      errors = [];
+      for f in glob.glob('.gitlab/duo/flows/*.yaml'):
+        try:
+          with open(f) as fh:
+            data = yaml.safe_load(fh);
+          assert data.get('version') == 'v1', f'{f} missing version v1';
+          assert 'components' in data, f'{f} missing components';
+          assert 'flow' in data, f'{f} missing flow';
+          print(f'  OK: {f}');
+        except Exception as e:
+          errors.append(f'{f}: {e}');
+          print(f'  FAIL: {f}: {e}');
+      if errors:
+        sys.exit(1);
+      print('All flow YAMLs valid.')
+      "
+  rules:
+    - changes:
+        - ".gitlab/duo/flows/*.yaml"
+    - when: manual
+      allow_failure: true
+
+validate:structure:
+  stage: validate
+  image: alpine:latest
+  script:
+    - echo "Checking required files..."
+    - test -f AGENTS.md && echo "  OK AGENTS.md"
+    - test -f LICENSE && echo "  OK LICENSE"
+    - test -f README.md && echo "  OK README.md"
+    - test -f .gitlab/duo/agent-config.yml && echo "  OK agent-config.yml"
+    - test -f .gitlab/duo/flows/reflex.yaml && echo "  OK reflex.yaml"
+    - test -f .gitlab/duo/flows/harden.yaml && echo "  OK harden.yaml"
+    - echo "Checking skills..."
+    - for skill in triage root-cause fix validation deploy postmortem harden; do
+        test -f "skills/$skill/SKILL.md" && echo "  OK skills/$skill/SKILL.md";
+      done
+    - echo "All required files present."
+
+# ---------------------------------------------------------------------------
+# TEST — Run Playwright flow validation tests
+# ---------------------------------------------------------------------------
+
+test:flow-validation:
+  stage: test
+  image: node:22-slim
+  before_script:
+    - cd tests/e2e
+    - npm ci
+  script:
+    - npx playwright test --project=flow-validation
+  artifacts:
+    when: always
+    paths:
+      - tests/e2e/playwright-report/
+    expire_in: 7 days
+
+test:python:
+  stage: test
+  image: python:3.11-slim
+  before_script:
+    - pip install --no-cache-dir -r requirements.txt
+  script:
+    - python -c "from src.gcp.cloud_logging import CloudLoggingClient; c = CloudLoggingClient(); print('Cloud Logging client OK (demo mode)')"
+    - python -c "from src.utils.sustainability import CarbonTracker; t = CarbonTracker(); t.record_step('test', 'validate', 1000, 500); print(t.format_report_text())"
+    - python -c "from src.utils.report_generator import ReportGenerator; print('Report generator OK')"
+    - echo "All Python modules import successfully."
+
+# ---------------------------------------------------------------------------
+# SECURITY — Basic security scanning
+# ---------------------------------------------------------------------------
+
+security:sast:
+  stage: security
+  image: python:3.11-slim
+  before_script:
+    - pip install bandit
+  script:
+    - bandit -r src/ -ll --format json -o bandit-report.json || true
+    - bandit -r src/ -ll
+  artifacts:
+    when: always
+    paths:
+      - bandit-report.json
+    expire_in: 30 days
+  allow_failure: true
+
+security:dependency-check:
+  stage: security
+  image: python:3.11-slim
+  before_script:
+    - pip install pip-audit
+  script:
+    - pip-audit -r requirements.txt || true
+  allow_failure: true

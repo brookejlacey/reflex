@@ -1,0 +1,179 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-03-16T00:00:00+00:00",
+  "stats": {
+    "total_incidents": 3,
+    "total_patterns": 5,
+    "incidents_by_severity": {"high": 2, "critical": 1},
+    "incidents_by_category": {"null_reference": 2, "resource_exhaustion": 1, "config": 1, "type_error": 1},
+    "top_recurring_patterns": [
+      {
+        "pattern": {
+          "pattern_id": "a1b2c3d4e5f6",
+          "name": "Unsafe direct dict/attribute access on nullable",
+          "category": "null_reference",
+          "risk_level": "high"
+        },
+        "occurrences": 2,
+        "incident_ids": ["INC-001", "INC-003"]
+      }
+    ],
+    "avg_resolution_time_seconds": 540.0,
+    "fix_success_rate": 1.0,
+    "total_recurrences": 1
+  },
+  "incidents": [
+    {
+      "incident_id": "INC-001",
+      "title": "Payment API 500 errors on empty cart checkout",
+      "severity": "critical",
+      "failure_type": "runtime",
+      "root_cause_summary": "Payment handler accessed cart.items[0] without checking for empty cart, causing IndexError when users clicked checkout with an empty cart.",
+      "fix_strategy": "Guard cart.items access with empty check, return 400 for empty carts",
+      "fix_type": "patch",
+      "patterns": [
+        {
+          "pattern_id": "a1b2c3d4e5f6",
+          "name": "Unsafe direct dict/attribute access on nullable",
+          "description": "Accessing properties or indices on a value that can be None/null/empty without a guard check",
+          "category": "null_reference",
+          "signature": "object[index] without None/empty check",
+          "search_regex": "\\w+\\[\\d+\\](?!.*if\\s+\\w+)",
+          "risk_level": "high",
+          "affected_languages": ["python", "javascript", "ruby"],
+          "affected_frameworks": ["flask", "django", "express"]
+        }
+      ],
+      "affected_files": ["src/services/payment.py"],
+      "affected_services": ["payment-api"],
+      "breaking_commit": "e4f5a6b",
+      "fix_commit": "d7c8e9f",
+      "merge_request_url": "https://gitlab.com/example/app/-/merge_requests/142",
+      "resolution_time_seconds": 480,
+      "fix_successful": true,
+      "recurrence_count": 1,
+      "related_incidents": ["INC-003"],
+      "tags": ["null-safety", "input-validation", "api"],
+      "created_at": "2026-02-15T14:32:00+00:00",
+      "resolved_at": "2026-02-15T14:40:00+00:00",
+      "lessons_learned": [
+        "Always guard collection access with empty/null checks",
+        "API endpoints should validate input state before processing",
+        "Empty state is a common edge case that needs explicit test coverage"
+      ],
+      "sustainability_metrics": {
+        "tokens_used": 12500,
+        "carbon_grams_co2": 5.8,
+        "time_saved_minutes": 165
+      }
+    },
+    {
+      "incident_id": "INC-002",
+      "title": "Database connection pool exhaustion under load",
+      "severity": "high",
+      "failure_type": "runtime",
+      "root_cause_summary": "Connection pool max_size was set to 10 in config but the new async worker count was raised to 50, causing pool starvation under normal load.",
+      "fix_strategy": "Align pool max_size with worker count, add pool exhaustion monitoring alert",
+      "fix_type": "config_change",
+      "patterns": [
+        {
+          "pattern_id": "b2c3d4e5f6a7",
+          "name": "Resource limit mismatch between components",
+          "description": "Configuration values for resource limits are inconsistent across dependent components",
+          "category": "resource_exhaustion",
+          "signature": "max_connections/pool_size mismatch with worker/thread count",
+          "search_regex": "(max_connections|pool_size|max_size)\\s*[=:]\\s*\\d+",
+          "risk_level": "high",
+          "affected_languages": ["python", "java", "go"],
+          "affected_frameworks": ["sqlalchemy", "hikari", "pgx"]
+        },
+        {
+          "pattern_id": "c3d4e5f6a7b8",
+          "name": "Config drift between deployment parameters",
+          "description": "Deployment configuration changed without updating dependent resource limits",
+          "category": "config",
+          "signature": "worker_count changed without pool_size update",
+          "search_regex": "(workers|threads|concurrency)\\s*[=:]\\s*\\d+",
+          "risk_level": "medium",
+          "affected_languages": [],
+          "affected_frameworks": []
+        }
+      ],
+      "affected_files": ["config/database.yml", "config/workers.yml"],
+      "affected_services": ["payment-api", "auth-service"],
+      "breaking_commit": "f1a2b3c",
+      "fix_commit": "a4b5c6d",
+      "resolution_time_seconds": 720,
+      "fix_successful": true,
+      "recurrence_count": 0,
+      "related_incidents": [],
+      "tags": ["config", "database", "scalability"],
+      "created_at": "2026-03-01T09:15:00+00:00",
+      "resolved_at": "2026-03-01T09:27:00+00:00",
+      "lessons_learned": [
+        "Resource limits should be validated against dependent component configurations",
+        "Add CI checks that verify config consistency across components",
+        "Pool exhaustion should trigger alerts before reaching 100%"
+      ],
+      "sustainability_metrics": {
+        "tokens_used": 8200,
+        "carbon_grams_co2": 3.8,
+        "time_saved_minutes": 142
+      }
+    },
+    {
+      "incident_id": "INC-003",
+      "title": "User listing crash on empty database",
+      "severity": "high",
+      "failure_type": "test",
+      "root_cause_summary": "PR #247 optimization replaced safe .get() with direct dict access on query result, causing TypeError when database returns empty result set.",
+      "fix_strategy": "Restore null-safe access pattern: use conditional check before accessing first_user properties",
+      "fix_type": "patch",
+      "patterns": [
+        {
+          "pattern_id": "a1b2c3d4e5f6",
+          "name": "Unsafe direct dict/attribute access on nullable",
+          "description": "Accessing properties or indices on a value that can be None/null/empty without a guard check",
+          "category": "null_reference",
+          "signature": "result[key] without None check after optimization removed .get()",
+          "search_regex": "\\w+\\[\"\\w+\"\\](?!.*\\.get\\()",
+          "risk_level": "high",
+          "affected_languages": ["python"],
+          "affected_frameworks": ["flask"]
+        },
+        {
+          "pattern_id": "d4e5f6a7b8c9",
+          "name": "Premature optimization removing safety guards",
+          "description": "Performance optimization that removes null/error safety checks",
+          "category": "type_error",
+          "signature": ".get() replaced with direct [] access for performance",
+          "search_regex": "# .*optim",
+          "risk_level": "medium",
+          "affected_languages": ["python", "javascript"],
+          "affected_frameworks": []
+        }
+      ],
+      "affected_files": ["src/demo/app.py"],
+      "affected_services": ["user-service"],
+      "breaking_commit": "a3f7c91",
+      "fix_commit": null,
+      "resolution_time_seconds": 420,
+      "fix_successful": true,
+      "recurrence_count": 0,
+      "related_incidents": ["INC-001"],
+      "tags": ["null-safety", "optimization", "api"],
+      "created_at": "2026-03-16T10:00:00+00:00",
+      "resolved_at": "2026-03-16T10:07:00+00:00",
+      "lessons_learned": [
+        "Optimizations that remove safety checks should require explicit empty-state tests",
+        "Code review should flag removal of .get() / optional chaining as a risk",
+        "This pattern has recurred — consider adding a linter rule"
+      ],
+      "sustainability_metrics": {
+        "tokens_used": 15000,
+        "carbon_grams_co2": 7.0,
+        "time_saved_minutes": 173
+      }
+    }
+  ]
+}

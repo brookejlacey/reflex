@@ -1,0 +1,945 @@
+# =============================================================================
+# REFLEX — Autonomous Incident-to-Fix Pipeline with Adaptive Memory
+# =============================================================================
+# A self-healing immune system for GitLab repositories that learns and evolves.
+#
+# What makes Reflex different:
+# 1. KNOWLEDGE GRAPH — Every incident builds organizational memory. Reflex gets
+#    smarter with every failure it handles.
+# 2. DEBATE PROTOCOL — Root cause and challenger agents argue until they converge
+#    on the truth, producing dramatically better diagnoses.
+# 3. CONDITIONAL ROUTING — Smart routing skips unnecessary steps based on
+#    severity, confidence, and validation results.
+# 4. SUSTAINABILITY — Every run tracks carbon footprint and compares against
+#    human incident response.
+#
+# Pipeline: Knowledge → Triage → Root Cause ⟷ Challenger → Fix → Validate → Deploy → Postmortem
+# =============================================================================
+
+version: "v1"
+environment: ambient
+
+# ---------------------------------------------------------------------------
+# COMPONENTS — Eight-agent incident response pipeline with debate protocol
+# ---------------------------------------------------------------------------
+
+components:
+
+  # =========================================================================
+  # STAGE 0: KNOWLEDGE LOOKUP — Search organizational memory
+  # =========================================================================
+  - name: "knowledge_lookup"
+    type: AgentComponent
+    prompt_id: "knowledge_lookup_prompt"
+    toolset:
+      - "read_file"
+      - "get_issue"
+      - "blob_search"
+    inputs:
+      - from: "context:goal"
+        as: "incident_context"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "knowledge_result"
+      type: "object"
+      properties:
+        similar_incidents:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              incident_id:
+                type: "string"
+              title:
+                type: "string"
+              similarity_score:
+                type: "number"
+              root_cause_summary:
+                type: "string"
+              fix_strategy:
+                type: "string"
+              patterns:
+                type: "array"
+                items:
+                  type: "string"
+            required: ["incident_id", "title", "similarity_score"]
+        known_patterns_matched:
+          type: "array"
+          items:
+            type: "string"
+        knowledge_graph_stats:
+          type: "object"
+          properties:
+            total_incidents:
+              type: "integer"
+            fix_success_rate:
+              type: "number"
+            recurring_patterns:
+              type: "array"
+              items:
+                type: "string"
+        recommendation:
+          type: "string"
+        is_recurrence:
+          type: "boolean"
+      required: ["similar_incidents", "known_patterns_matched", "recommendation", "is_recurrence"]
+    ui_log_events:
+      - "on_agent_final_answer"
+
+  # =========================================================================
+  # STAGE 1: TRIAGE — Classify severity with knowledge graph context
+  # =========================================================================
+  - name: "triage"
+    type: AgentComponent
+    prompt_id: "triage_prompt"
+    toolset:
+      - "get_issue"
+      - "read_file"
+      - "list_dir"
+      - "find_files"
+      - "blob_search"
+      - "create_issue_note"
+    inputs:
+      - from: "context:goal"
+        as: "incident_context"
+      - from: "context:knowledge_lookup.final_answer"
+        as: "knowledge_context"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "triage_result"
+      type: "object"
+      properties:
+        severity:
+          type: "string"
+          enum: ["critical", "high", "medium", "low"]
+        affected_services:
+          type: "array"
+          items:
+            type: "string"
+        failure_type:
+          type: "string"
+          enum: ["build", "test", "security_scan", "deployment", "runtime", "dependency", "configuration"]
+        error_summary:
+          type: "string"
+        pipeline_stage:
+          type: "string"
+        suspected_files:
+          type: "array"
+          items:
+            type: "string"
+        recent_changes_summary:
+          type: "string"
+        knowledge_graph_insight:
+          type: "string"
+        recommended_priority:
+          type: "string"
+          enum: ["immediate", "next_cycle", "backlog"]
+      required: ["severity", "affected_services", "failure_type", "error_summary", "recommended_priority"]
+    ui_log_events:
+      - "on_agent_final_answer"
+      - "on_tool_execution_success"
+
+  # =========================================================================
+  # STAGE 2A: ROOT CAUSE — Initial hypothesis
+  # =========================================================================
+  - name: "root_cause"
+    type: AgentComponent
+    prompt_id: "root_cause_prompt"
+    toolset:
+      - "read_file"
+      - "list_dir"
+      - "find_files"
+      - "blob_search"
+      - "get_issue"
+      - "get_repository_file"
+      - "list_repository_tree"
+      - "create_issue_note"
+    inputs:
+      - from: "context:goal"
+        as: "incident_context"
+      - from: "context:knowledge_lookup.final_answer"
+        as: "knowledge_context"
+      - from: "context:triage.final_answer"
+        as: "triage_result"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "root_cause_result"
+      type: "object"
+      properties:
+        root_cause_summary:
+          type: "string"
+        breaking_commit:
+          type: "string"
+        breaking_files:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              file_path:
+                type: "string"
+              line_range:
+                type: "string"
+              description:
+                type: "string"
+            required: ["file_path", "description"]
+        failure_mechanism:
+          type: "string"
+        evidence:
+          type: "array"
+          items:
+            type: "string"
+        confidence:
+          type: "string"
+          enum: ["high", "medium", "low"]
+        related_issues:
+          type: "array"
+          items:
+            type: "string"
+        fix_strategy:
+          type: "string"
+        knowledge_graph_match:
+          type: "string"
+      required: ["root_cause_summary", "breaking_files", "failure_mechanism", "confidence", "fix_strategy"]
+    ui_log_events:
+      - "on_agent_final_answer"
+      - "on_tool_execution_success"
+
+  # =========================================================================
+  # STAGE 2B: CHALLENGER — Debate protocol: challenge the root cause hypothesis
+  # =========================================================================
+  - name: "challenger"
+    type: AgentComponent
+    prompt_id: "challenger_prompt"
+    toolset:
+      - "read_file"
+      - "list_dir"
+      - "find_files"
+      - "blob_search"
+      - "get_repository_file"
+      - "list_repository_tree"
+    inputs:
+      - from: "context:goal"
+        as: "incident_context"
+      - from: "context:triage.final_answer"
+        as: "triage_result"
+      - from: "context:root_cause.final_answer"
+        as: "root_cause_hypothesis"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "challenger_result"
+      type: "object"
+      properties:
+        verdict:
+          type: "string"
+          enum: ["confirmed", "refined", "rejected"]
+        challenges:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              claim:
+                type: "string"
+              counter_evidence:
+                type: "string"
+              resolution:
+                type: "string"
+            required: ["claim", "counter_evidence", "resolution"]
+        refined_root_cause:
+          type: "string"
+        refined_fix_strategy:
+          type: "string"
+        refined_confidence:
+          type: "string"
+          enum: ["high", "medium", "low"]
+        debate_summary:
+          type: "string"
+        additional_breaking_files:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              file_path:
+                type: "string"
+              description:
+                type: "string"
+            required: ["file_path", "description"]
+      required: ["verdict", "challenges", "refined_root_cause", "refined_fix_strategy", "refined_confidence", "debate_summary"]
+    ui_log_events:
+      - "on_agent_final_answer"
+      - "on_tool_execution_success"
+
+  # =========================================================================
+  # STAGE 3: FIX — Generate a targeted, minimal code fix
+  # =========================================================================
+  - name: "fix"
+    type: AgentComponent
+    prompt_id: "fix_prompt"
+    toolset:
+      - "read_file"
+      - "edit_file"
+      - "create_file_with_contents"
+      - "list_dir"
+      - "find_files"
+      - "blob_search"
+    inputs:
+      - from: "context:goal"
+        as: "incident_context"
+      - from: "context:triage.final_answer"
+        as: "triage_result"
+      - from: "context:root_cause.final_answer"
+        as: "root_cause_result"
+      - from: "context:challenger.final_answer"
+        as: "debate_result"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "fix_result"
+      type: "object"
+      properties:
+        fix_summary:
+          type: "string"
+        files_modified:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              file_path:
+                type: "string"
+              change_description:
+                type: "string"
+            required: ["file_path", "change_description"]
+        fix_type:
+          type: "string"
+          enum: ["patch", "rollback", "config_change", "dependency_update", "refactor"]
+        breaking_change:
+          type: "boolean"
+        rollback_safe:
+          type: "boolean"
+      required: ["fix_summary", "files_modified", "fix_type", "breaking_change", "rollback_safe"]
+    ui_log_events:
+      - "on_agent_final_answer"
+      - "on_tool_execution_success"
+
+  # =========================================================================
+  # STAGE 4: VALIDATION — Regression tests + security scan on the fix
+  # =========================================================================
+  - name: "validation"
+    type: AgentComponent
+    prompt_id: "validation_prompt"
+    toolset:
+      - "read_file"
+      - "create_file_with_contents"
+      - "edit_file"
+      - "list_dir"
+      - "find_files"
+      - "blob_search"
+    inputs:
+      - from: "context:goal"
+        as: "incident_context"
+      - from: "context:triage.final_answer"
+        as: "triage_result"
+      - from: "context:challenger.final_answer"
+        as: "debate_result"
+      - from: "context:fix.final_answer"
+        as: "fix_result"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "validation_result"
+      type: "object"
+      properties:
+        tests_created:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              file_path:
+                type: "string"
+              test_name:
+                type: "string"
+              test_type:
+                type: "string"
+                enum: ["regression", "unit", "integration", "security"]
+            required: ["file_path", "test_name", "test_type"]
+        security_concerns:
+          type: "array"
+          items:
+            type: "string"
+        validation_passed:
+          type: "boolean"
+        notes:
+          type: "string"
+      required: ["tests_created", "security_concerns", "validation_passed"]
+    ui_log_events:
+      - "on_agent_final_answer"
+      - "on_tool_execution_success"
+
+  # =========================================================================
+  # STAGE 5: DEPLOY — Create MR, monitor pipeline, prepare for merge
+  # =========================================================================
+  - name: "deploy"
+    type: AgentComponent
+    prompt_id: "deploy_prompt"
+    toolset:
+      - "read_file"
+      - "create_commit"
+      - "create_merge_request"
+      - "create_issue_note"
+      - "list_dir"
+    inputs:
+      - from: "context:goal"
+        as: "incident_context"
+      - from: "context:triage.final_answer"
+        as: "triage_result"
+      - from: "context:challenger.final_answer"
+        as: "debate_result"
+      - from: "context:fix.final_answer"
+        as: "fix_result"
+      - from: "context:validation.final_answer"
+        as: "validation_result"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "deploy_result"
+      type: "object"
+      properties:
+        merge_request_url:
+          type: "string"
+        merge_request_iid:
+          type: "integer"
+        branch_name:
+          type: "string"
+        commit_sha:
+          type: "string"
+        labels_applied:
+          type: "array"
+          items:
+            type: "string"
+        deployment_status:
+          type: "string"
+          enum: ["mr_created", "pipeline_running", "pipeline_passed", "merged", "failed"]
+      required: ["merge_request_url", "branch_name", "deployment_status"]
+    ui_log_events:
+      - "on_agent_final_answer"
+      - "on_tool_execution_success"
+
+  # =========================================================================
+  # STAGE 6: POSTMORTEM — Blameless report + knowledge graph update
+  # =========================================================================
+  - name: "postmortem"
+    type: AgentComponent
+    prompt_id: "postmortem_prompt"
+    toolset:
+      - "get_issue"
+      - "create_issue_note"
+      - "read_file"
+      - "create_file_with_contents"
+      - "edit_file"
+      - "blob_search"
+    inputs:
+      - from: "context:goal"
+        as: "incident_context"
+      - from: "context:knowledge_lookup.final_answer"
+        as: "knowledge_context"
+      - from: "context:triage.final_answer"
+        as: "triage_result"
+      - from: "context:root_cause.final_answer"
+        as: "root_cause_result"
+      - from: "context:challenger.final_answer"
+        as: "debate_result"
+      - from: "context:fix.final_answer"
+        as: "fix_result"
+      - from: "context:validation.final_answer"
+        as: "validation_result"
+      - from: "context:deploy.final_answer"
+        as: "deploy_result"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "postmortem_result"
+      type: "object"
+      properties:
+        postmortem_summary:
+          type: "string"
+        timeline:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              timestamp:
+                type: "string"
+              event:
+                type: "string"
+              agent:
+                type: "string"
+            required: ["event", "agent"]
+        follow_up_issues:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              title:
+                type: "string"
+              description:
+                type: "string"
+              priority:
+                type: "string"
+            required: ["title", "description"]
+        knowledge_graph_update:
+          type: "object"
+          properties:
+            new_patterns:
+              type: "array"
+              items:
+                type: "string"
+            updated_patterns:
+              type: "array"
+              items:
+                type: "string"
+            recurrence_detected:
+              type: "boolean"
+        sustainability_metrics:
+          type: "object"
+          properties:
+            total_agent_steps:
+              type: "integer"
+            estimated_time_saved_minutes:
+              type: "integer"
+            estimated_carbon_saved_grams:
+              type: "number"
+        lessons_learned:
+          type: "array"
+          items:
+            type: "string"
+      required: ["postmortem_summary", "timeline", "follow_up_issues", "lessons_learned"]
+    ui_log_events:
+      - "on_agent_final_answer"
+      - "on_tool_execution_success"
+
+# ---------------------------------------------------------------------------
+# PROMPTS
+# ---------------------------------------------------------------------------
+
+prompts:
+
+  # --- KNOWLEDGE LOOKUP PROMPT ---
+  - prompt_id: "knowledge_lookup_prompt"
+    name: "Reflex Knowledge Lookup"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the KNOWLEDGE LOOKUP AGENT of Reflex. You are the organizational memory.
+
+        Before any analysis begins, you search Reflex's knowledge graph — a persistent
+        record of every past incident, its root cause, fix strategy, and outcome.
+
+        ## Your Responsibilities
+        1. Read the knowledge graph from .reflex/knowledge/incidents.json
+        2. Compare the current incident against all past incidents
+        3. Identify similar patterns, matching error signatures, and related failures
+        4. If this is a RECURRENCE of a known pattern, flag it immediately
+        5. Provide context from past incidents that will accelerate diagnosis
+
+        ## Why This Matters
+        Traditional incident response starts from zero every time. You ensure Reflex
+        never forgets. If we've seen this bug before — or anything like it — the
+        downstream agents should know immediately.
+
+        ## Similarity Matching
+        Compare against:
+        - Error messages and stack traces
+        - Affected files and services
+        - Failure types and categories
+        - Pattern signatures in the knowledge graph
+
+        ## Output
+        - List similar past incidents with their fix strategies
+        - Identify any exact pattern matches
+        - If this is a recurrence, state it clearly and include what worked last time
+        - Provide a recommendation: "This matches INC-001, recommend applying the same fix strategy"
+      user: |
+        A new incident has occurred. Search the knowledge graph for relevant history:
+
+        {{incident_context}}
+      placeholder: history
+    params:
+      timeout: 120
+
+  # --- TRIAGE PROMPT (updated with knowledge context) ---
+  - prompt_id: "triage_prompt"
+    name: "Reflex Triage Agent"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the TRIAGE AGENT of Reflex, an autonomous incident response system
+        with organizational memory.
+
+        You have access to the knowledge graph results — past incidents similar to this one.
+        Use this context to make faster, more accurate triage decisions.
+
+        ## Your Responsibilities
+        1. Parse the incident context (pipeline failure, error logs, issue description)
+        2. Cross-reference with knowledge graph findings for faster classification
+        3. Identify the failure type (build, test, security, deployment, runtime, dependency, config)
+        4. Determine severity based on blast radius, user impact, and recurrence history
+        5. If this is a recurring pattern, escalate severity
+        6. Identify affected services and components
+        7. Post a triage summary as a comment on the incident issue
+
+        ## Severity Classification
+        - CRITICAL: Production down, data loss risk, security breach, OR recurring pattern that was supposed to be fixed
+        - HIGH: Major feature broken, significant user impact, pipeline blocked
+        - MEDIUM: Non-critical feature affected, workaround exists
+        - LOW: Minor issue, cosmetic, non-blocking
+
+        ## Knowledge Graph Insight
+        If the knowledge lookup found similar incidents, include a knowledge_graph_insight
+        field explaining what we know from past experience.
+      user: |
+        An incident has been detected. The knowledge graph has been consulted.
+
+        INCIDENT CONTEXT:
+        {{incident_context}}
+
+        KNOWLEDGE GRAPH FINDINGS:
+        {{knowledge_context}}
+      placeholder: history
+    params:
+      timeout: 180
+
+  # --- ROOT CAUSE PROMPT (updated with knowledge context) ---
+  - prompt_id: "root_cause_prompt"
+    name: "Reflex Root Cause Agent"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the ROOT CAUSE AGENT of Reflex, an autonomous incident response system
+        with organizational memory and a debate protocol.
+
+        You have access to the knowledge graph — past incidents that match this one. If
+        a similar incident was resolved before, use that fix strategy as a starting point.
+
+        Your hypothesis will be CHALLENGED by the Challenger Agent. Present your evidence
+        clearly so it can be debated. Include specific file paths, line numbers, and
+        reasoning chains.
+
+        ## Your Responsibilities
+        1. Analyze the triage results and knowledge graph context
+        2. Read the suspected files and their surrounding code
+        3. Trace the call chain to find where the failure originates
+        4. If the knowledge graph found a match, verify the same pattern applies here
+        5. Present your root cause hypothesis with supporting evidence
+        6. Formulate a fix strategy
+
+        ## Evidence Standard
+        Your analysis will be debated. For each claim, provide:
+        - The specific file and line number
+        - What the code does vs what it should do
+        - Why this causes the observed failure
+        - How you know this is the root cause and not a symptom
+
+        ## Knowledge Graph Match
+        If a past incident matches, set knowledge_graph_match to explain the connection.
+        "This matches INC-001 pattern: unsafe direct dict access on nullable return value"
+      user: |
+        Find the root cause. Your hypothesis will be challenged by the debate protocol.
+
+        INCIDENT CONTEXT:
+        {{incident_context}}
+
+        KNOWLEDGE GRAPH FINDINGS:
+        {{knowledge_context}}
+
+        TRIAGE RESULTS:
+        {{triage_result}}
+      placeholder: history
+    params:
+      timeout: 240
+
+  # --- CHALLENGER PROMPT (NEW — debate protocol) ---
+  - prompt_id: "challenger_prompt"
+    name: "Reflex Challenger Agent"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the CHALLENGER AGENT of Reflex's debate protocol.
+
+        Your role is adversarial quality assurance. The Root Cause Agent has proposed a
+        hypothesis. Your job is to CHALLENGE it — poke holes, find counter-evidence,
+        test alternative explanations, and ultimately either CONFIRM, REFINE, or REJECT
+        the hypothesis.
+
+        ## Why Debate?
+        Single-pass analysis misses edge cases. By challenging the hypothesis, we:
+        - Catch incorrect root causes before a wrong fix is applied
+        - Discover additional affected files the Root Cause Agent missed
+        - Improve confidence through adversarial testing
+        - Produce better fix strategies through refinement
+
+        ## Your Responsibilities
+        1. Read the Root Cause Agent's hypothesis and evidence
+        2. For each claim, look for counter-evidence:
+           - Could this error come from a DIFFERENT source?
+           - Are there other recent changes that could cause the same symptom?
+           - Does the proposed failure mechanism actually explain ALL the symptoms?
+           - Are there files the Root Cause Agent didn't check?
+        3. Search for alternative explanations
+        4. Verify the proposed fix strategy would actually resolve the issue
+        5. Issue your verdict:
+
+        ## Verdicts
+        - CONFIRMED: The hypothesis holds up under scrutiny. Evidence is solid.
+          → Use the original root cause and fix strategy unchanged.
+        - REFINED: The hypothesis is mostly right but needs adjustment.
+          → Provide refined_root_cause and refined_fix_strategy with improvements.
+        - REJECTED: The hypothesis is wrong. You found a better explanation.
+          → Provide your alternative root cause and fix strategy.
+
+        ## Challenge Format
+        For each challenge, provide:
+        - claim: What the Root Cause Agent claimed
+        - counter_evidence: What you found that challenges or supports it
+        - resolution: How the challenge was resolved (confirmed/modified/disproved)
+
+        ## Important
+        - Be rigorous but fair. Don't reject correct hypotheses for the sake of debate.
+        - If the evidence is overwhelming, CONFIRM quickly.
+        - If you find additional breaking files, include them.
+        - Your refined_confidence should reflect the debate outcome.
+      user: |
+        The Root Cause Agent has proposed the following hypothesis. Challenge it.
+
+        INCIDENT CONTEXT:
+        {{incident_context}}
+
+        TRIAGE RESULTS:
+        {{triage_result}}
+
+        ROOT CAUSE HYPOTHESIS:
+        {{root_cause_hypothesis}}
+
+        Your job: verify, challenge, or refine this hypothesis. Read the code yourself.
+        Don't trust the Root Cause Agent's analysis — verify it independently.
+      placeholder: history
+    params:
+      timeout: 240
+
+  # --- FIX PROMPT (updated with debate context) ---
+  - prompt_id: "fix_prompt"
+    name: "Reflex Fix Agent"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the FIX AGENT of Reflex, an autonomous incident response system.
+
+        The root cause has been identified AND verified through Reflex's debate protocol.
+        The Challenger Agent has either confirmed, refined, or replaced the original
+        hypothesis. Use the DEBATE RESULT as your primary guide — it represents the
+        most thoroughly vetted analysis.
+
+        ## Your Responsibilities
+        1. Read the debate result to understand the verified root cause
+        2. If verdict is "confirmed" — use the original fix strategy
+        3. If verdict is "refined" — use the refined_fix_strategy
+        4. If verdict is "rejected" — use the challenger's alternative fix strategy
+        5. Implement the fix using edit_file or create_file_with_contents
+        6. Keep the fix minimal and safe
+
+        ## Fix Principles
+        - MINIMAL: Change the fewest lines possible.
+        - SAFE: Must not introduce new issues.
+        - CONSISTENT: Match existing code style exactly.
+        - ROLLBACK-SAFE: Ensure the fix can be easily reverted.
+        - DEBATE-INFORMED: Incorporate insights from the challenger's analysis.
+      user: |
+        Implement the fix based on the debate-verified root cause.
+
+        INCIDENT CONTEXT:
+        {{incident_context}}
+
+        TRIAGE RESULTS:
+        {{triage_result}}
+
+        ROOT CAUSE ANALYSIS:
+        {{root_cause_result}}
+
+        DEBATE RESULT (use this as primary guide):
+        {{debate_result}}
+      placeholder: history
+    params:
+      timeout: 240
+
+  # --- VALIDATION PROMPT ---
+  - prompt_id: "validation_prompt"
+    name: "Reflex Validation Agent"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the VALIDATION AGENT of Reflex. You are an expert QA engineer and
+        security analyst. Validate the fix by creating regression tests and checking
+        for security concerns.
+
+        You have the full debate record — use the challenger's findings to inform
+        your test coverage. If the challenger found additional affected files, test those too.
+
+        ## Your Responsibilities
+        1. Read the fix and the debate results
+        2. Create regression tests that test the fixed behavior
+        3. Include tests for edge cases the challenger identified
+        4. Check for security vulnerabilities
+        5. Set validation_passed to true only if confident the fix is safe and tested
+      user: |
+        Validate the fix with tests and security analysis.
+
+        INCIDENT CONTEXT:
+        {{incident_context}}
+
+        TRIAGE RESULTS:
+        {{triage_result}}
+
+        DEBATE RESULT:
+        {{debate_result}}
+
+        FIX DETAILS:
+        {{fix_result}}
+      placeholder: history
+    params:
+      timeout: 240
+
+  # --- DEPLOY PROMPT ---
+  - prompt_id: "deploy_prompt"
+    name: "Reflex Deploy Agent"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the DEPLOY AGENT of Reflex. Package the fix into a merge request.
+
+        ## MR Format
+        Title: `[Reflex Auto-Fix] <description>`
+        Branch: `reflex/fix-<issue-number>-<short-description>`
+        Labels: `reflex::auto-fix`, severity label, type label
+
+        ## MR Description must include:
+        - **Incident**: Link to issue
+        - **Knowledge Graph**: Similar past incidents (if any)
+        - **Root Cause**: Summary (debate-verified)
+        - **Debate Summary**: How the root cause was verified
+        - **Fix**: What was changed and why
+        - **Tests**: Regression tests added
+        - **Sustainability**: Estimated time/carbon saved
+      user: |
+        Create the merge request.
+
+        INCIDENT CONTEXT:
+        {{incident_context}}
+
+        TRIAGE: {{triage_result}}
+        DEBATE: {{debate_result}}
+        FIX: {{fix_result}}
+        VALIDATION: {{validation_result}}
+      placeholder: history
+    params:
+      timeout: 180
+
+  # --- POSTMORTEM PROMPT (updated with knowledge graph update) ---
+  - prompt_id: "postmortem_prompt"
+    name: "Reflex Postmortem Agent"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the POSTMORTEM AGENT of Reflex. Create a blameless postmortem AND
+        update the knowledge graph so Reflex learns from this incident.
+
+        ## Postmortem Structure
+        1. Incident Summary
+        2. Timeline (include all agent actions + debate rounds)
+        3. Root Cause (debate-verified)
+        4. Resolution (fix + MR link)
+        5. Knowledge Graph Update — NEW patterns to add, existing patterns to update
+        6. Lessons Learned
+        7. Follow-Up Issues
+        8. Sustainability Report
+
+        ## Knowledge Graph Update
+        This is CRITICAL. You must:
+        1. Read the current knowledge graph (.reflex/knowledge/incidents.json)
+        2. Add this incident as a new node
+        3. Extract new patterns from the root cause
+        4. Check if this is a recurrence of an existing pattern (increment recurrence_count)
+        5. Write the updated knowledge graph back to the file
+
+        This is how Reflex LEARNS. Every incident makes the system smarter.
+
+        ## Sustainability Report
+        Calculate: agent steps, tokens estimated, time saved vs human response,
+        carbon saved (human ~3hrs compute + meetings vs Reflex ~minutes of inference)
+
+        ## Tone: BLAMELESS, CONSTRUCTIVE, SPECIFIC, ACTIONABLE
+      user: |
+        Generate the postmortem and UPDATE THE KNOWLEDGE GRAPH.
+
+        INCIDENT: {{incident_context}}
+        KNOWLEDGE GRAPH STATE: {{knowledge_context}}
+        TRIAGE: {{triage_result}}
+        ROOT CAUSE: {{root_cause_result}}
+        DEBATE: {{debate_result}}
+        FIX: {{fix_result}}
+        VALIDATION: {{validation_result}}
+        DEPLOY: {{deploy_result}}
+      placeholder: history
+    params:
+      timeout: 300
+
+# ---------------------------------------------------------------------------
+# ROUTERS — Pipeline with debate protocol and conditional routing
+# ---------------------------------------------------------------------------
+
+routers:
+  # Knowledge lookup always proceeds to triage
+  - from: "knowledge_lookup"
+    to: "triage"
+
+  # Triage routes based on priority
+  - from: "triage"
+    condition:
+      input: "context:triage.final_answer.recommended_priority"
+      routes:
+        "immediate": "root_cause"
+        "next_cycle": "root_cause"
+        "backlog": "postmortem"
+
+  # Root cause always goes to challenger (debate protocol)
+  - from: "root_cause"
+    to: "challenger"
+
+  # Challenger routes based on refined confidence
+  - from: "challenger"
+    condition:
+      input: "context:challenger.final_answer.refined_confidence"
+      routes:
+        "high": "fix"
+        "medium": "fix"
+        "low": "postmortem"
+
+  # Fix always goes to validation
+  - from: "fix"
+    to: "validation"
+
+  # Validation routes based on pass/fail
+  - from: "validation"
+    condition:
+      input: "context:validation.final_answer.validation_passed"
+      routes:
+        "true": "deploy"
+        "false": "postmortem"
+
+  # Deploy always goes to postmortem
+  - from: "deploy"
+    to: "postmortem"
+
+  # Postmortem ends the pipeline
+  - from: "postmortem"
+    to: "end"
+
+# ---------------------------------------------------------------------------
+# FLOW ENTRY POINT
+# ---------------------------------------------------------------------------
+
+flow:
+  entry_point: "knowledge_lookup"

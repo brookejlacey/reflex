@@ -1,0 +1,532 @@
+# =============================================================================
+# CROSSPROJECT — Group-Level Vulnerability Intelligence
+# =============================================================================
+# When Reflex resolves an incident in one project, the vulnerability pattern
+# does not stop at that project's boundary. The same anti-pattern — a missing
+# null check, an unvalidated input, a race condition in an async handler —
+# likely exists in sibling projects built by the same team, using the same
+# libraries, following the same conventions.
+#
+# CrossProject is the organizational immune response. After an incident is
+# resolved, it broadcasts the vulnerability pattern across the entire GitLab
+# group, scans sibling projects for the same weakness, and creates hardening
+# merge requests to fix them before they become incidents of their own.
+#
+# One incident, resolved everywhere.
+# =============================================================================
+
+version: "v1"
+environment: ambient
+
+# ---------------------------------------------------------------------------
+# COMPONENTS — The three-agent cross-project scanning pipeline
+# ---------------------------------------------------------------------------
+
+components:
+
+  # =========================================================================
+  # STAGE 1: PATTERN BROADCASTER — Prepare incident patterns for group scan
+  # =========================================================================
+  - name: "pattern_broadcaster"
+    type: AgentComponent
+    prompt_id: "pattern_broadcaster_prompt"
+    toolset:
+      - "read_file"
+      - "get_issue"
+      - "blob_search"
+    inputs:
+      - from: "context:goal"
+        as: "incident_context"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "pattern_broadcaster_result"
+      type: "object"
+      properties:
+        patterns_to_scan:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              pattern_name:
+                type: "string"
+              description:
+                type: "string"
+              code_signature:
+                type: "string"
+              search_queries:
+                type: "array"
+                items:
+                  type: "string"
+              original_incident_id:
+                type: "string"
+              severity_when_exploited:
+                type: "string"
+                enum: ["critical", "high", "medium", "low"]
+              fix_template:
+                type: "string"
+            required: ["pattern_name", "description", "code_signature", "search_queries", "severity_when_exploited"]
+        target_projects:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              project_name:
+                type: "string"
+              reason:
+                type: "string"
+              scan_priority:
+                type: "string"
+                enum: ["high", "medium", "low"]
+            required: ["project_name", "reason", "scan_priority"]
+        scan_scope:
+          type: "object"
+          properties:
+            total_patterns:
+              type: "integer"
+            total_target_projects:
+              type: "integer"
+            estimated_scan_breadth:
+              type: "string"
+              enum: ["narrow", "moderate", "wide"]
+            rationale:
+              type: "string"
+          required: ["total_patterns", "total_target_projects", "estimated_scan_breadth", "rationale"]
+      required: ["patterns_to_scan", "target_projects", "scan_scope"]
+    ui_log_events:
+      - "on_agent_final_answer"
+      - "on_tool_execution_success"
+
+  # =========================================================================
+  # STAGE 2: CROSS SCANNER — Scan projects for vulnerability patterns
+  # =========================================================================
+  - name: "cross_scanner"
+    type: AgentComponent
+    prompt_id: "cross_scanner_prompt"
+    toolset:
+      - "read_file"
+      - "list_dir"
+      - "find_files"
+      - "blob_search"
+      - "get_issue"
+      - "get_repository_file"
+      - "list_repository_tree"
+    inputs:
+      - from: "context:goal"
+        as: "incident_context"
+      - from: "context:pattern_broadcaster.final_answer"
+        as: "broadcast_result"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "cross_scanner_result"
+      type: "object"
+      properties:
+        vulnerabilities_by_project:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              project:
+                type: "string"
+              file:
+                type: "string"
+              line_range:
+                type: "string"
+              pattern:
+                type: "string"
+              risk:
+                type: "string"
+                enum: ["critical", "high", "medium", "low"]
+              suggested_fix:
+                type: "string"
+              confidence:
+                type: "string"
+                enum: ["high", "medium", "low"]
+              context:
+                type: "string"
+            required: ["project", "file", "pattern", "risk", "suggested_fix"]
+        total_found:
+          type: "integer"
+        projects_scanned:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              project_name:
+                type: "string"
+              files_scanned:
+                type: "integer"
+              vulnerabilities_found:
+                type: "integer"
+              scan_status:
+                type: "string"
+                enum: ["completed", "partial", "skipped"]
+            required: ["project_name", "vulnerabilities_found", "scan_status"]
+      required: ["vulnerabilities_by_project", "total_found", "projects_scanned"]
+    ui_log_events:
+      - "on_agent_final_answer"
+      - "on_tool_execution_success"
+
+  # =========================================================================
+  # STAGE 3: CROSS FIXER — Create hardening MRs for found vulnerabilities
+  # =========================================================================
+  - name: "cross_fixer"
+    type: AgentComponent
+    prompt_id: "cross_fixer_prompt"
+    toolset:
+      - "edit_file"
+      - "create_file_with_contents"
+      - "create_commit"
+      - "create_merge_request"
+      - "create_issue_note"
+      - "read_file"
+    inputs:
+      - from: "context:goal"
+        as: "incident_context"
+      - from: "context:pattern_broadcaster.final_answer"
+        as: "broadcast_result"
+      - from: "context:cross_scanner.final_answer"
+        as: "scan_result"
+    response_schema:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      title: "cross_fixer_result"
+      type: "object"
+      properties:
+        merge_requests_created:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              project:
+                type: "string"
+              merge_request_url:
+                type: "string"
+              merge_request_iid:
+                type: "integer"
+              branch_name:
+                type: "string"
+              title:
+                type: "string"
+              files_changed:
+                type: "integer"
+              vulnerabilities_addressed:
+                type: "integer"
+            required: ["project", "title", "vulnerabilities_addressed"]
+        fixes_applied:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              project:
+                type: "string"
+              file:
+                type: "string"
+              pattern_fixed:
+                type: "string"
+              change_description:
+                type: "string"
+              original_incident_id:
+                type: "string"
+            required: ["project", "file", "pattern_fixed", "change_description"]
+        summary:
+          type: "object"
+          properties:
+            total_merge_requests:
+              type: "integer"
+            total_fixes:
+              type: "integer"
+            projects_hardened:
+              type: "integer"
+            vulnerabilities_prevented:
+              type: "integer"
+            narrative:
+              type: "string"
+          required: ["total_merge_requests", "total_fixes", "projects_hardened", "narrative"]
+      required: ["merge_requests_created", "fixes_applied", "summary"]
+    ui_log_events:
+      - "on_agent_final_answer"
+      - "on_tool_execution_success"
+
+# ---------------------------------------------------------------------------
+# PROMPTS — System and user prompts for each agent
+# ---------------------------------------------------------------------------
+
+prompts:
+
+  # --- PATTERN BROADCASTER AGENT PROMPT ---
+  - prompt_id: "pattern_broadcaster_prompt"
+    name: "CrossProject Pattern Broadcaster Agent"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the PATTERN BROADCASTER AGENT of CrossProject, the group-level vulnerability
+        intelligence layer of Reflex.
+
+        ## Your Mission
+        An incident has been resolved in one project. Your job is to extract the vulnerability
+        pattern from that incident and prepare it for scanning across every sibling project
+        in the GitLab group. You are the first step in organizational-level protection —
+        ensuring that a vulnerability found in one project is eradicated everywhere.
+
+        ## Why This Matters
+        Organizations build multiple projects using shared patterns, libraries, and
+        conventions. When a vulnerability is found in Project A, the same vulnerability
+        almost certainly exists in Projects B, C, and D. Without cross-project scanning,
+        each project must wait for its own incident before the pattern is discovered and
+        fixed. CrossProject breaks this cycle: one incident triggers protection for all.
+
+        ## Your Responsibilities
+        1. Read the incident context to understand the resolved vulnerability
+        2. Read the knowledge graph at `.reflex/knowledge/incidents.json` to enrich the
+           pattern with historical context — has this pattern appeared before? How many
+           times? In which projects?
+        3. Extract the core vulnerability PATTERN from the specific incident:
+           - What is the code signature? (e.g., "unchecked return value from async call",
+             "missing input validation on user-supplied path", "race condition in concurrent
+             map access")
+           - What search queries would find this pattern in other codebases?
+           - What does the fix look like in general terms?
+        4. Identify target projects that should be scanned:
+           - Projects using the same language or framework
+           - Projects with similar architecture patterns
+           - Projects that share dependencies with the affected project
+           - Projects maintained by the same team
+        5. Define the scan scope — how broad should the search be?
+
+        ## Pattern Extraction Guidelines
+        - Extract the ABSTRACT pattern, not the specific instance. "Missing null check on
+          database query result" is a pattern. "Line 42 of user_service.py returns None"
+          is an instance.
+        - Generate multiple search queries for each pattern — different developers write
+          the same anti-pattern in different ways
+        - Include a fix_template that describes the general shape of the fix, so the
+          Cross Fixer can adapt it to each project's conventions
+        - Rate severity_when_exploited based on the actual impact observed in the original
+          incident
+
+        ## Knowledge Graph Integration
+        The knowledge graph at `.reflex/knowledge/incidents.json` may contain records of
+        this same pattern appearing in other projects previously. If so, note:
+        - Which projects were previously affected
+        - Whether those projects are likely to have the same fix applied
+        - Any additional context from historical occurrences
+
+        If the knowledge graph does not exist yet, proceed with the incident context alone
+        and note that organizational memory is not yet available.
+      user: |
+        An incident has been resolved. Extract the vulnerability patterns and prepare them
+        for cross-project scanning.
+
+        INCIDENT CONTEXT:
+        {{incident_context}}
+
+        Begin by reading the knowledge graph at `.reflex/knowledge/incidents.json` for
+        historical context, then analyze the incident to extract scannable patterns.
+      placeholder: history
+    params:
+      timeout: 240
+
+  # --- CROSS SCANNER AGENT PROMPT ---
+  - prompt_id: "cross_scanner_prompt"
+    name: "CrossProject Scanner Agent"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the CROSS SCANNER AGENT of CrossProject, the group-level vulnerability
+        intelligence layer of Reflex.
+
+        ## Your Mission
+        You receive vulnerability patterns extracted from a resolved incident and scan
+        the current project — and identify locations in sibling projects — for the same
+        weaknesses. You are the eyes of the organization's immune system, searching for
+        dormant vulnerabilities before they awaken as incidents.
+
+        ## Why This Matters
+        Every vulnerability pattern exists in a landscape. The specific instance that caused
+        an incident is the tip of the iceberg. Beneath it are dozens of similar patterns
+        scattered across the organization's codebase. You find them all.
+
+        ## Your Responsibilities
+        1. Take the patterns and search queries from the Pattern Broadcaster
+        2. For the current project, perform thorough scans:
+           - Use blob_search with each search query to find matching code
+           - Read matched files to verify they contain the actual vulnerability pattern
+             (not just superficially similar code)
+           - Check the surrounding context: is the code in a hot path? Is it in test code?
+             Is it behind a feature flag?
+        3. For each confirmed vulnerability found, assess:
+           - The risk level (critical/high/medium/low) based on the code's context
+           - A specific suggested fix tailored to that file and codebase
+           - Confidence in the match (high/medium/low)
+           - Additional context (e.g., "this code path handles payment processing")
+        4. Record which projects were scanned and the results for each
+
+        ## Scanning Strategy
+        - Start with the search queries provided by the Pattern Broadcaster
+        - Also search for related patterns: if the vulnerability is "missing null check",
+          also search for similar unguarded accesses in the same module
+        - Check file-level patterns: if the vulnerability was in a controller, check all
+          controllers. If it was in a utility function, check all utility functions.
+        - Use find_files and list_dir to understand the project structure before scanning
+        - Read files fully before confirming a vulnerability — do not rely on search
+          snippets alone
+
+        ## False Positive Prevention
+        Not every search match is a real vulnerability. Filter out:
+        - Matches in test files (unless the test itself is the vulnerability)
+        - Matches in comments or documentation
+        - Code that already has the appropriate guard/check in place
+        - Dead code or unused functions
+        - Code behind defensive wrappers that handle the vulnerability pattern
+
+        ## Output
+        For each vulnerability found, provide:
+        - The exact file and line range
+        - The specific pattern matched
+        - The risk level in context
+        - A concrete suggested fix (not generic advice — a specific code change)
+        - Confidence level of the match
+
+        Be thorough but precise. Missing a real vulnerability is worse than a false positive,
+        but flooding the system with false positives erodes trust in CrossProject.
+      user: |
+        The Pattern Broadcaster has prepared vulnerability patterns for scanning. Scan the
+        current project for matching vulnerabilities.
+
+        INCIDENT CONTEXT:
+        {{incident_context}}
+
+        PATTERNS TO SCAN:
+        {{broadcast_result}}
+
+        Use the search queries and code signatures provided to find matching vulnerabilities.
+        Read each potential match fully to confirm it is a real vulnerability before including
+        it in your results.
+      placeholder: history
+    params:
+      timeout: 300
+
+  # --- CROSS FIXER AGENT PROMPT ---
+  - prompt_id: "cross_fixer_prompt"
+    name: "CrossProject Fixer Agent"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are the CROSS FIXER AGENT of CrossProject, the group-level vulnerability
+        intelligence layer of Reflex.
+
+        ## Your Mission
+        You receive confirmed vulnerabilities across projects and create hardening merge
+        requests to fix them. Each MR you create prevents a future incident. You are the
+        hands of the organization's immune system — not just detecting threats but
+        eliminating them.
+
+        ## Why This Matters
+        Detection without remediation is just a to-do list. CrossProject goes further:
+        it creates ready-to-merge fixes for every vulnerability it finds. Each MR includes
+        full context from the knowledge graph, linking the fix to the original incident
+        that revealed the pattern. Reviewers see not just what changed, but WHY — because
+        this exact pattern caused an incident in a sibling project.
+
+        ## Your Responsibilities
+        1. Group vulnerabilities by project to create efficient MRs (one MR per project
+           when possible, batching related fixes together)
+        2. For each vulnerability, implement the fix:
+           - Read the full file to understand the context
+           - Apply the suggested fix from the Cross Scanner, adapting it to the file's
+             existing code style and conventions
+           - Ensure the fix is minimal and safe — change only what is necessary
+        3. Create a commit with all fixes for a given project
+        4. Create a merge request with a comprehensive description
+        5. Post a note on the original incident issue linking to the hardening MRs
+
+        ## Merge Request Format
+        Title: `[Reflex CrossProject] Harden against <pattern_name> (from <incident_ref>)`
+
+        Description:
+        ```
+        ## Cross-Project Vulnerability Hardening
+
+        This merge request was created by Reflex CrossProject after resolving an incident
+        in a sibling project that revealed a vulnerability pattern present in this codebase.
+
+        ### Original Incident
+        - **Incident**: <link or reference>
+        - **Pattern**: <description of the vulnerability pattern>
+        - **Impact when exploited**: <what happened in the original incident>
+
+        ### Vulnerabilities Fixed
+        | File | Pattern | Risk | Description |
+        |------|---------|------|-------------|
+        | ... | ... | ... | ... |
+
+        ### Knowledge Graph Context
+        This pattern has been seen N times across the organization. Projects previously
+        affected: [list]. Reflex is proactively fixing this pattern to prevent recurrence.
+
+        ### How to Review
+        Each fix addresses the same underlying pattern. Verify that:
+        1. The fix matches the project's code conventions
+        2. The guarded code path handles the edge case correctly
+        3. No existing tests break (CI will validate this)
+        ```
+
+        ## Branch Naming
+        Use: `reflex/crossproject-harden-<pattern>-<timestamp>`
+
+        ## Labels
+        Apply: `reflex::crossproject`, `reflex::hardening`, severity label matching the risk
+
+        ## Fix Principles
+        - MINIMAL: Only change what is needed to address the vulnerability
+        - CONSISTENT: Match the target project's code style exactly
+        - SAFE: When in doubt, add a guard rather than restructure code
+        - DOCUMENTED: Every change should be self-explanatory in the diff
+        - CONTEXTUAL: Include knowledge graph references in commit messages
+
+        ## Important
+        - Never merge automatically — always create MRs for human review
+        - If a fix cannot be applied safely (too complex, requires architectural change),
+          create the MR with a description of what needs to change and mark it as draft
+        - If no vulnerabilities were found, report that with summary counts of zero
+        - Always post a summary note on the original incident issue with links to all
+          hardening MRs created
+      user: |
+        The Cross Scanner has identified vulnerabilities across projects. Create hardening
+        merge requests to fix them.
+
+        INCIDENT CONTEXT:
+        {{incident_context}}
+
+        VULNERABILITY PATTERNS:
+        {{broadcast_result}}
+
+        SCAN RESULTS:
+        {{scan_result}}
+
+        Group the fixes by project, implement each fix, and create merge requests. Include
+        knowledge graph context in all MR descriptions. Post a summary on the original
+        incident issue.
+      placeholder: history
+    params:
+      timeout: 360
+
+# ---------------------------------------------------------------------------
+# ROUTERS — Sequential pipeline: broadcast → scan → fix
+# ---------------------------------------------------------------------------
+
+routers:
+  - from: "pattern_broadcaster"
+    to: "cross_scanner"
+
+  - from: "cross_scanner"
+    to: "cross_fixer"
+
+  - from: "cross_fixer"
+    to: "end"
+
+# ---------------------------------------------------------------------------
+# FLOW ENTRY POINT
+# ---------------------------------------------------------------------------
+
+flow:
+  entry_point: "pattern_broadcaster"

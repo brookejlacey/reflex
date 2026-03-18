@@ -1,0 +1,98 @@
+stages:
+  - build
+  - test
+  - security_scan
+  - deploy
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  PYTHON_VERSION: "3.12"
+
+# ---------------------------------------------------------------------------
+# Build
+# ---------------------------------------------------------------------------
+build:
+  stage: build
+  image: python:${PYTHON_VERSION}-slim
+  script:
+    - echo "Installing dependencies..."
+    - pip install --upgrade pip
+    - pip install -r src/demo/requirements.txt
+    - echo "Build complete."
+  artifacts:
+    paths:
+      - .pip-cache/
+    expire_in: 1 hour
+
+# ---------------------------------------------------------------------------
+# Test  (this stage FAILS due to the PR #247 regression)
+# ---------------------------------------------------------------------------
+test:unit:
+  stage: test
+  image: python:${PYTHON_VERSION}-slim
+  needs: ["build"]
+  script:
+    - pip install -r src/demo/requirements.txt
+    - python -m pytest src/demo/tests/ -v --tb=short --junitxml=report.xml
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
+    paths:
+      - report.xml
+    expire_in: 7 days
+
+test:lint:
+  stage: test
+  image: python:${PYTHON_VERSION}-slim
+  needs: ["build"]
+  script:
+    - pip install ruff
+    - ruff check src/demo/ --output-format=gitlab
+  allow_failure: true
+
+# ---------------------------------------------------------------------------
+# Security Scan (SAST)
+# ---------------------------------------------------------------------------
+sast:
+  stage: security_scan
+  image: python:${PYTHON_VERSION}-slim
+  needs: ["test:unit"]
+  script:
+    - pip install bandit
+    - bandit -r src/demo/ -f json -o bandit-report.json || true
+    - echo "SAST scan complete."
+  artifacts:
+    paths:
+      - bandit-report.json
+    expire_in: 30 days
+
+dependency_scan:
+  stage: security_scan
+  image: python:${PYTHON_VERSION}-slim
+  needs: ["test:unit"]
+  script:
+    - pip install pip-audit
+    - pip-audit -r src/demo/requirements.txt --output json > audit-report.json || true
+  artifacts:
+    paths:
+      - audit-report.json
+    expire_in: 30 days
+
+# ---------------------------------------------------------------------------
+# Deploy to staging
+# ---------------------------------------------------------------------------
+deploy:staging:
+  stage: deploy
+  image: python:${PYTHON_VERSION}-slim
+  needs: ["test:unit", "sast"]
+  script:
+    - echo "Deploying to staging environment..."
+    - echo "Running database migrations..."
+    - echo "Starting health-check probes..."
+    - echo "Deployment to staging complete."
+  environment:
+    name: staging
+    url: https://staging-api.reflex-demo.example.com
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
