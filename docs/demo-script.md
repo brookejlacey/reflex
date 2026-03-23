@@ -7,56 +7,29 @@
 
 ---
 
-## 0:00 – 0:20 | The Hook
+## 0:00 – 0:05 | The Hook
 
-**SCREEN:** Black screen. A single terminal cursor blinks. Then, in large monospace text, a pipeline failure notification appears line by line:
-
-```
-PIPELINE #8341 FAILED
-Stage: test
-Job: unit-tests
-Project: acme/user-service
-```
-
-A beat of silence. Then the text clears and a new line appears:
+**SCREEN:** Black screen. White monospace text fades in, line by line:
 
 ```
-Reflex has entered the chat.
+It's 2 AM.
+Your phone buzzes.
+Pipeline failed. Production is down.
+You've seen this bug before.
+But nobody wrote the postmortem.
 ```
 
-**NARRATION:**
+A beat. The text clears. New line:
 
-> "Every engineering team knows this feeling. The pipeline breaks. Slack lights up. Someone drops what they're doing, digs through logs, writes a fix, adds tests, creates a merge request, writes a postmortem. Two to four hours gone — if you're lucky."
->
-> "What if your repository could heal itself?"
+```
+What if your repository remembered?
+```
 
-**CUT TO:** Reflex logo + tagline: *Autonomous Incident-to-Fix Pipeline for GitLab.*
+**CUT TO:** Reflex logo + tagline: *Your repository's immune system.*
 
 ---
 
-## 0:20 – 0:50 | The Problem
-
-**SCREEN:** GitLab merge request view showing **MR !247** — *"Optimize user listing to reduce memory allocation"*
-
-**[ANNOTATION — top right corner]:** `This MR was approved and merged yesterday.`
-
-**NARRATION:**
-
-> "Here's a real scenario. A developer ships an optimization to the user listing endpoint — PR 247. It pre-allocates a response dict and attaches summary stats from the first record. The code review looked fine. CI passed on the seeded test data."
-
-**SCREEN:** Zoom into the code diff. Highlight lines 90–92 of `app.py`:
-
-```python
-first_user = users[0] if users else None
-response["newest_user"] = first_user["name"]      # BUG
-response["newest_email"] = first_user["email"]
-```
-
-**[ANNOTATION — red callout on line 91]:** `TypeError: NoneType is not subscriptable — when no users match the filter`
-
-**NARRATION:**
-
-> "But there's a subtle bug. When the database returns empty results — no users match the filter — `first_user` is `None`. Accessing `None["name"]` crashes the service. This morning, an integration test with an empty filter hit it."
+## 0:05 – 0:20 | The Incident
 
 **SCREEN:** GitLab pipeline view — **Pipeline #8341** shows green for `build`, red X on `test`. Click into the failed job. The traceback scrolls into view:
 
@@ -65,59 +38,129 @@ TypeError: 'NoneType' object is not subscriptable
   File "app.py", line 91, in list_users
 ```
 
+**[ANNOTATION]:** `MR !247 merged yesterday — "Optimize user listing to reduce memory allocation"`
+
+**NARRATION:**
+
+> "A developer shipped an optimization. CI passed on seeded data. But when the database returns zero results, `users[0]` is `None`. The service crashes. Twenty-three users already hit this in production."
+
 **[ANNOTATION]:** `This is where Reflex takes over.`
 
 ---
 
-## 0:50 – 2:20 | Reflex In Action
+## 0:20 – 0:35 | Knowledge Graph Lookup
 
-**SCREEN:** GitLab issue auto-created: **"Pipeline #8341 failure: TypeError in user-service list_users"**
+**SCREEN:** GitLab issue auto-created. First comment appears from `@reflex-bot`:
+
+```
+## Knowledge Graph Lookup
+Searching organizational memory... 3 past incidents indexed.
+
+MATCH FOUND — 87% similarity to INC-001:
+  "Payment API 500 errors on empty cart checkout"
+  Root cause: Unsafe direct dict/attribute access on nullable
+  Pattern: object[index] without None/empty check
+  Fix strategy: Guard access with empty check
+
+Recommendation: This is a RECURRENCE of a known pattern.
+  Apply the same fix strategy that resolved INC-001.
+```
+
+**[ANNOTATION — highlight the similarity score]:** `Reflex remembers. It's seen this pattern before.`
 
 **NARRATION:**
 
-> "Reflex triggers automatically on pipeline failure. Nine specialized agents across two orchestrated flows — powered by Anthropic Claude through the GitLab AI Gateway. Watch."
+> "Before any analysis begins, Reflex checks its knowledge graph — a persistent record of every past incident. It finds an 87 percent match to a payment API crash from two weeks ago. Same pattern: unsafe access on a nullable value. Reflex already knows what to do."
 
-### Agent 1: Triage (0:55 – 1:10)
+---
 
-**SCREEN:** A comment appears on the issue from `@reflex-bot`:
+## 0:35 – 0:50 | Triage with Knowledge Context
+
+**SCREEN:** Second comment appears:
 
 ```
 ## Triage Report
-Severity: P2 — Service degradation
-Affected service: user-service (api/users endpoint)
-Blast radius: All clients calling GET /api/users with filters
-              returning zero results
-Error: TypeError at app.py:91 — NoneType subscript access
+Severity: P2 — Service degradation (ESCALATED: recurring pattern)
+Blast radius: All clients calling GET /api/users with empty filters
+Knowledge insight: This is the 2nd occurrence of pattern
+  "Unsafe direct dict/attribute access on nullable"
+  First seen in INC-001 (payment-api). Pattern was not
+  fully hardened across the codebase.
 GCP Cloud Logging: 23 matching errors in last 6 hours
+Priority: IMMEDIATE
 ```
-
-**[ANNOTATION — beside the GCP line]:** `Google Cloud Logging integration — pulls correlated errors automatically`
 
 **NARRATION:**
 
-> "The Triage Agent classifies severity, identifies the blast radius, and pulls correlated errors from Google Cloud Logging. Twenty-three users already hit this in production."
+> "Triage is faster because of organizational memory. Reflex knows this pattern has recurred — it escalates severity and flags the gap: the codebase was never fully hardened after the first incident."
 
-### Agent 2: Root Cause (1:10 – 1:25)
+---
 
-**SCREEN:** A second comment appears:
+## 0:50 – 1:25 | Root Cause and Challenger Debate
+
+**This is the money shot. Split screen or sequential comments showing the debate.**
+
+**SCREEN:** Third comment — Root Cause Agent:
 
 ```
-## Root Cause Analysis
-Breaking commit: a3f7c91 (PR #247, @chen.wei, 2026-03-14)
+## Root Cause Hypothesis
+Breaking commit: a3f7c91 (MR !247, @chen.wei, 2026-03-14)
 File: src/demo/app.py, lines 90-92
-Cause: Null-safety omission — accessing properties on a
-       None value when the user list is empty
-Confidence: 98%
+Mechanism: Null-safety omission — accessing properties on
+  None when user list is empty
+Evidence:
+  - Line 90: first_user = users[0] if users else None
+  - Line 91: response["newest_user"] = first_user["name"]  ← CRASH
+  - users is empty list when no filter matches
+Knowledge graph match: Identical to INC-001 pattern
+Confidence: HIGH
+Fix strategy: Add null guard before dict access
+```
+
+**[ANNOTATION]:** `Root Cause proposes. Now the Challenger tests it.`
+
+**SCREEN:** Fourth comment — Challenger Agent:
+
+```
+## Debate Protocol — Challenger Analysis
+
+Challenge 1: "Is this the ONLY crash path?"
+  Claim: Root cause is line 91, first_user["name"]
+  Counter-evidence: Verified. Line 92 (first_user["email"])
+    would also crash — TWO crash paths, not one.
+  Resolution: CONFIRMED + EXPANDED. Both lines need the guard.
+
+Challenge 2: "Could this come from a different source?"
+  Claim: Breaking commit is a3f7c91
+  Counter-evidence: Checked git blame. No other recent changes
+    to this function. The commit introduced both lines.
+  Resolution: CONFIRMED.
+
+Challenge 3: "Does the fix strategy cover all cases?"
+  Claim: Add null guard before dict access
+  Counter-evidence: The original fix strategy only mentions
+    line 91. Line 92 has the same vulnerability.
+  Resolution: REFINED — fix must guard BOTH lines 91 and 92.
+
+╔══════════════════════════════════════════╗
+║  VERDICT: CONFIRMED                      ║
+║  Refined confidence: HIGH (98%)          ║
+║  Root cause verified through adversarial ║
+║  testing. Fix strategy expanded.         ║
+╚══════════════════════════════════════════╝
 ```
 
 **NARRATION:**
 
-> "Root Cause Agent does git archaeology — blame, diff analysis, change correlation. It pinpoints commit `a3f7c91` from PR 247, lines 90 through 92. Confidence: 98 percent."
+> "This is what makes Reflex different. The Root Cause Agent proposes a hypothesis. Then the Challenger Agent — an adversarial second opinion — independently reads the code, pokes holes, and tests alternatives. Here, it confirmed the root cause but caught that the fix strategy was incomplete: two crash paths, not one. The debate resolves to confirmed with 98 percent confidence. No single-pass analysis catches this."
 
-### Agent 3: Fix (1:25 – 1:40)
+---
 
-**SCREEN:** A third comment with a code diff:
+## 1:25 – 1:50 | Fix, Validate, Deploy (Quick Montage)
 
+**SCREEN:** Rapid cascade of comments. Show each for 3-4 seconds:
+
+**Fix Agent:**
 ```diff
 - first_user = users[0] if users else None
 - response["newest_user"] = first_user["name"]
@@ -130,105 +173,163 @@ Confidence: 98%
 +     response["newest_email"] = None
 ```
 
-**NARRATION:**
+**[ANNOTATION]:** `Debate-informed: fixes BOTH crash paths the Challenger identified`
 
-> "The Fix Agent generates a minimal, safe patch. It doesn't rewrite the function — it adds a null guard that matches the existing code style. Surgical."
-
-### Agent 4: Validation (1:40 – 1:55)
-
-**SCREEN:** A fourth comment:
-
+**Validation Agent:**
 ```
-## Validation
-New regression tests added:
-  - test_list_users_empty_db → verifies empty result handling
-  - test_list_users_no_filter_match → verifies filter with zero matches
-  - test_list_users_with_results → confirms existing behavior preserved
-SAST scan: PASSED (no new vulnerabilities)
+## Validation — PASSED
+3 regression tests added:
+  - test_list_users_empty_db
+  - test_list_users_no_filter_match
+  - test_list_users_with_results
+SAST scan: PASSED
 ```
 
-**NARRATION:**
-
-> "Validation Agent writes three regression tests — including the exact edge case that caused the crash — and runs a security scan. All green."
-
-### Agent 5: Deploy (1:55 – 2:08)
-
-**SCREEN:** GitLab merge request view: **MR !251 — "Fix: guard against empty user list in list_users endpoint"**
-
-Show the MR contents: the code fix plus the new test file. Pipeline status: all stages green.
-
-**[ANNOTATION]:** `Fix + tests + passing pipeline — ready for human review`
+**Deploy Agent:**
+```
+MR !251 created: "Fix: guard against empty user list in list_users"
+Pipeline: ALL GREEN
+Labels: reflex::auto-fix, priority::high
+Status: Ready for human review
+```
 
 **NARRATION:**
 
-> "The Deploy Agent creates a merge request with the fix and the tests in a single commit. The pipeline runs — and passes. It's ready for one-click human approval."
+> "Fix, validate, deploy — in seconds. The fix addresses both crash paths the Challenger found. Three regression tests. Security scan clean. Merge request ready for one-click approval."
 
-### Agent 6: Postmortem (2:08 – 2:20)
+---
 
-**SCREEN:** Back on the issue. A long, structured comment:
+## 1:50 – 2:10 | Postmortem + Knowledge Graph Update
+
+**SCREEN:** Postmortem comment on the issue, then zoom into the knowledge graph update:
 
 ```
 ## Postmortem — Incident #8341
 Timeline:
-  2026-03-14 14:22 — PR #247 merged
+  2026-03-14 14:22 — MR !247 merged (introduced bug)
   2026-03-16 08:15 — First error in Cloud Logging
   2026-03-16 09:41 — Pipeline #8341 fails
   2026-03-16 09:42 — Reflex triggered
+  2026-03-16 09:43 — Knowledge graph: 87% match to INC-001
+  2026-03-16 09:44 — Debate protocol: CONFIRMED (98%)
   2026-03-16 09:47 — MR !251 created with fix
 
-Root cause: Missing null check on empty query results
-Contributing factor: No test coverage for empty-state scenarios
-Follow-up: Harden all database access patterns (auto-created)
-
-Sustainability Report:
-  Agent steps: 6 | Tokens: ~12,400 | Energy: ~8g CO2
-  vs. manual response: ~750g CO2 (est. 3 person-hours)
-  Savings: 98.9% carbon reduction
+RECURRENCE DETECTED: This is the 2nd occurrence of pattern
+  "Unsafe direct dict/attribute access on nullable"
 ```
 
-**[ANNOTATION — on sustainability section]:** `Green Agent prize — every run tracks its carbon footprint`
+**SCREEN:** Cut to the actual JSON being updated — show the knowledge graph file:
+
+```json
+{
+  "incident_id": "INC-003",
+  "title": "TypeError in user-service list_users on empty results",
+  "patterns": [{
+    "pattern_id": "a1b2c3d4e5f6",
+    "name": "Unsafe direct dict/attribute access on nullable",
+    "recurrence_count": 2
+  }],
+  "debate_verdict": "confirmed",
+  "debate_confidence": "high"
+}
+```
+
+**[ANNOTATION — on the JSON]:** `This is how Reflex LEARNS. Every incident updates the knowledge graph.`
 
 **NARRATION:**
 
-> "The Postmortem Agent produces a blameless report with a full timeline, root cause summary, and follow-up actions. And at the bottom — sustainability metrics. This five-minute automated response saved an estimated 98.9 percent in carbon versus a manual incident."
+> "The Postmortem Agent writes the blameless report — and then does something no other system does: it updates the knowledge graph. This incident becomes organizational memory. The pattern's recurrence count goes to 2. Next time Reflex sees this pattern, it will be even faster."
 
 ---
 
-## 2:20 – 2:45 | The Hardening Flow
+## 2:10 – 2:30 | Sentinel: Predictive Prevention
 
-**SCREEN:** A new merge request appears: **MR !252 — "Harden: add null guards to 4 similar database access patterns"**
+**SCREEN:** Cut to a completely new scene. A developer opens a new merge request: **MR !260 — "Add premium user tier with exclusive content"**
 
-Show the diff — multiple files with similar null-safety fixes.
+The diff shows:
+
+```python
+premium_users = get_premium_users(tier="gold")
+featured = premium_users[0]["display_name"]
+```
+
+A comment appears from `@reflex-sentinel`:
+
+```
+## Sentinel Predictive Analysis: HIGH RISK — Review Required
+
+Reflex has seen this before. This merge request contains code
+that matches a pattern from 2 past incidents:
+
+| File | Pattern | Past Incident | Risk |
+|------|---------|---------------|------|
+| premium.py:14 | Unsafe direct access on nullable | INC-001, INC-003 | HIGH |
+
+This EXACT pattern caused:
+  - INC-001: Payment API 500 errors (critical, 2026-03-02)
+  - INC-003: user-service TypeError (high, 2026-03-16)
+
+Recommendation: Add a guard check before accessing
+  premium_users[0]. If the query returns no gold-tier
+  users, this line will crash.
+
+This MR has been flagged for mandatory review.
+```
+
+**[ANNOTATION]:** `The bug that HASN'T happened yet — caught before it merges.`
 
 **NARRATION:**
 
-> "But Reflex doesn't stop at the fix. The Hardening Flow kicks in — three more agents that extract the vulnerability pattern, scan the entire codebase for similar code, and create a preventive merge request. MR 252 patches four other endpoints with the same missing null guard. Bugs that haven't happened yet — prevented."
+> "But here is where it gets powerful. A week later, a different developer submits a new MR. Sentinel — Reflex's predictive prevention flow — scans the diff against the knowledge graph and warns: this code matches the exact pattern that caused incidents 001 and 003. The bug is caught BEFORE it reaches production. Reflex did not just heal — it built immunity."
 
-**SCREEN:** Quick montage of the two flow diagrams from the README:
+---
 
-- Main flow: Triage -> Root Cause -> Fix -> Validation -> Deploy -> Postmortem
-- Harden flow: Pattern Extract -> Codebase Scan -> Preventive Fix
+## 2:30 – 2:45 | Dashboard + Sustainability
 
-**[ANNOTATION]:** `9 agents. 2 flows. Fully autonomous. Each agent also works as a standalone GitLab Duo skill.`
+**SCREEN:** Flash the incident dashboard — show a clean visualization with:
+
+- MTTR trend line dropping from 3 hours to 5 minutes
+- Incident count by severity (bar chart)
+- Pattern recurrence heatmap
+- Active Sentinel warnings
+- Knowledge graph stats: 3 incidents, 5 patterns, 1 recurrence detected
+
+**SCREEN:** Sustainability comparison card:
+
+```
+Sustainability Report — Incident #8341
+  Agent steps: 8 | Tokens: ~18,000
+  Reflex carbon: ~12g CO2
+  Manual response: ~750g CO2 (est. 3 person-hours)
+  Carbon reduction: 98.4%
+
+  Carbon-aware scheduling: Active
+  Agents scheduled during low-grid-intensity windows
+```
+
+**NARRATION:**
+
+> "Every run is tracked. Reflex reports its carbon footprint versus a traditional manual response — and the carbon-aware scheduler runs agents during low-intensity grid windows when possible. This incident: 98.4 percent carbon reduction."
 
 ---
 
 ## 2:45 – 3:00 | The Close
 
-**SCREEN:** Clean slide with key stats:
+**SCREEN:** Clean slide with key stats appearing one by one:
 
 ```
+17 agents across 4 orchestrated flows
+Adversarial debate protocol for verified root causes
+Persistent knowledge graph — organizational memory
+Predictive prevention — catches bugs before they merge
+Cross-project intelligence — one fix, every project
+Carbon-aware scheduling — sustainable AI operations
 MTTR: 2–4 hours  →  5 minutes
-Agents: 9 across 2 orchestrated flows
-LLM: Anthropic Claude via GitLab AI Gateway
-Infra: Google Cloud Logging + Monitoring
-Carbon: 98.9% reduction vs. manual response
-Each agent: also a standalone /reflex-* skill
 ```
 
 **NARRATION:**
 
-> "Reflex turns your GitLab repository into a self-healing system. Nine agents, two flows, zero human intervention required. It detects, diagnoses, fixes, validates, deploys, documents, and hardens — in minutes, not hours."
+> "Reflex is 17 agents across 4 flows. It triages, debates, fixes, validates, deploys, documents, hardens, predicts, and protects — across every project in your organization. It learns from every incident and prevents the next one before the code is ever merged."
 
 **SCREEN:** Reflex logo. Tagline fades in:
 
@@ -236,7 +337,7 @@ Each agent: also a standalone /reflex-* skill
 
 **NARRATION:**
 
-> "Reflex. Built on GitLab Duo Agent Platform. Powered by Anthropic Claude. Integrated with Google Cloud. And it gets better every time it runs."
+> "Reflex. Built on GitLab Duo Agent Platform. Powered by Anthropic Claude. Integrated with Google Cloud. And it gets smarter every time it runs."
 
 **SCREEN:** GitLab repo URL + team info. Fade to black.
 
@@ -244,19 +345,24 @@ Each agent: also a standalone /reflex-* skill
 
 ## Production Notes
 
-**Pacing:** The entire middle section (0:50–2:20) should feel like a cascade — each agent's comment appearing shortly after the last, building momentum. Use subtle transition sounds or a progress indicator showing which agent is active.
+**Pacing:** The demo has three acts: (1) Memory + Triage is fast and confident, (2) the Debate Protocol section is the centerpiece — give it room to breathe, (3) Sentinel is the dramatic payoff. Everything after Sentinel is quick hits.
 
 **Screen recordings needed:**
-1. GitLab MR view (the original PR #247)
-2. GitLab pipeline view (failed pipeline #8341)
-3. GitLab issue with agent comments appearing sequentially
-4. GitLab MR view (the fix MR !251)
-5. GitLab MR view (the hardening MR !252)
-6. Architecture diagram slides (two flow diagrams)
-7. Closing stats slide
+1. GitLab pipeline view (failed pipeline #8341)
+2. GitLab issue with knowledge lookup comment
+3. GitLab issue with triage comment
+4. GitLab issue with root cause + challenger debate comments (the money shot)
+5. GitLab issue with fix/validation/deploy cascade
+6. GitLab issue with postmortem + knowledge graph JSON
+7. GitLab MR view with Sentinel warning (new MR !260)
+8. Dashboard visualization (can be a polished mockup or live page)
+9. Sustainability comparison card
+10. Closing stats slide
+
+**The debate section (0:50-1:25):** This is 35 seconds and the most important part of the demo. Show the Root Cause comment appearing, then a brief pause, then the Challenger comment appearing with its structured challenges and verdict box. The viewer should feel the adversarial tension resolving into confidence.
 
 **Annotations style:** Use minimal, high-contrast callout boxes (white text on dark semi-transparent background). Position them consistently in the top-right or as inline pointers. Do not clutter the screen.
 
-**Music:** Low, driving electronic track. Builds slightly during the agent cascade. Drops out for the closing statement.
+**Music:** Low, driving electronic track. Builds during the debate section. Swells when the verdict box appears. Drops to ambient during Sentinel reveal. Clean resolution for closing.
 
 **Do NOT include:** Long pauses, "um"s, webcam footage, or slides with walls of text. Every frame should show the product working.
