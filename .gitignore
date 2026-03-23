@@ -10,3 +10,7 @@ test-results/
 playwright-report/
 venv/
 .cache/
+.vercel
+
+# Hackathon/submission prep docs
+docs/
