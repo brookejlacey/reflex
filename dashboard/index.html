@@ -7,81 +7,140 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0a0c12;--bg-card:#10131c;--bg-card2:#161a26;
-  --text:#f0f4ff;--text-dim:#b8c4e0;--text-muted:#7888a8;
+  --bg:#0a0b10;--surface:#11131c;--surface2:#181b28;
+  --text:#f0f4ff;--dim:#b0bce0;--muted:#6878a0;
   --purple:#7B61FF;--cyan:#00E5FF;--green:#00E676;
-  --red:#FF3366;--orange:#FF6B00;--yellow:#FFD600;
+  --red:#FF3366;--orange:#FF6B00;--yellow:#FFD600;--blue:#448AFF;
 }
 html{font-size:16px;scroll-behavior:smooth}
 body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;overflow-x:hidden}
 a{color:var(--cyan);text-decoration:none;transition:color .2s}
 a:hover{color:#fff}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(123,97,255,.2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(123,97,255,.4)}
 
-/* Hero */
-.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:60px 24px;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 30% 20%,rgba(123,97,255,.08) 0%,transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(0,229,255,.06) 0%,transparent 50%);pointer-events:none}
-.hero-badge{display:inline-block;padding:6px 18px;border-radius:50px;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;background:rgba(123,97,255,.12);color:var(--purple);border:1px solid rgba(123,97,255,.25);margin-bottom:28px}
-.hero h1{font-size:clamp(3rem,8vw,5.5rem);font-weight:900;letter-spacing:-2px;line-height:1.05;background:linear-gradient(135deg,#fff 0%,var(--purple) 40%,var(--cyan) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:20px}
-.hero .subtitle{font-size:clamp(1.1rem,2.5vw,1.4rem);color:var(--text-dim);max-width:680px;margin:0 auto 40px}
-.hero .quote{font-style:italic;color:var(--text-muted);max-width:600px;font-size:.95rem;line-height:1.6;margin-bottom:48px;border-left:3px solid var(--purple);padding-left:20px;text-align:left}
-.cta-row{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
-.btn{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:10px;font-size:1rem;font-weight:700;letter-spacing:.3px;transition:all .25s}
-.btn-primary{background:linear-gradient(135deg,var(--purple),#5a3fff);color:#fff;box-shadow:0 4px 24px rgba(123,97,255,.3)}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(123,97,255,.45);color:#fff}
-.btn-secondary{background:rgba(0,229,255,.08);color:var(--cyan);border:1px solid rgba(0,229,255,.3)}
-.btn-secondary:hover{background:rgba(0,229,255,.15);transform:translateY(-2px);color:#fff}
+/* ─── Animated orbs ─── */
+@keyframes orb-float{
+  0%,100%{transform:translate(0,0) scale(1)}
+  33%{transform:translate(30px,-30px) scale(1.05)}
+  66%{transform:translate(-20px,20px) scale(.95)}
+}
+@keyframes orb-pulse{0%,100%{opacity:.7}50%{opacity:1}}
+.orb{position:absolute;border-radius:50%;filter:blur(100px);animation:orb-float 20s ease-in-out infinite,orb-pulse 8s ease-in-out infinite;pointer-events:none}
 
-/* Stats strip */
-.stats-strip{display:flex;justify-content:center;gap:48px;padding:48px 24px;border-top:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04);flex-wrap:wrap}
+/* ─── Grid background ─── */
+.grid-bg{
+  background-image:linear-gradient(rgba(123,97,255,.1) 1px,transparent 1px),linear-gradient(90deg,rgba(123,97,255,.1) 1px,transparent 1px);
+  background-size:60px 60px;
+}
+
+/* ─── Dot grid (pulsing) ─── */
+@keyframes dot-pulse{0%,100%{opacity:.5}50%{opacity:.9}}
+.dot-grid{
+  background-image:radial-gradient(circle,rgba(0,229,255,.4) 1.5px,transparent 1.5px);
+  background-size:32px 32px;
+  animation:dot-pulse 4s ease-in-out infinite;
+}
+
+/* ─── Shimmer ─── */
+@keyframes shimmer-x{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.shimmer{
+  background:linear-gradient(90deg,transparent 0%,rgba(123,97,255,.12) 25%,rgba(0,229,255,.12) 50%,rgba(123,97,255,.12) 75%,transparent 100%);
+  background-size:200% 100%;
+  animation:shimmer-x 12s ease-in-out infinite;
+}
+
+/* ─── Spinning gradient ─── */
+@keyframes spin-slow{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+.spinning-gradient{
+  position:absolute;width:800px;height:800px;top:50%;left:50%;transform:translate(-50%,-50%);
+  border-radius:50%;
+  background:conic-gradient(from 0deg,transparent,rgba(123,97,255,.2) 60deg,transparent 120deg,rgba(0,229,255,.15) 200deg,transparent 260deg,rgba(255,51,102,.12) 320deg,transparent 360deg);
+  filter:blur(40px);animation:spin-slow 30s linear infinite;pointer-events:none;
+}
+
+/* ─── Floating ─── */
+@keyframes float-gentle{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.float-gentle{animation:float-gentle 6s ease-in-out infinite}
+
+/* ─── Fade in ─── */
+@keyframes fade-up{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fade-up .8s ease both}
+.d1{animation-delay:.1s}.d2{animation-delay:.2s}.d3{animation-delay:.3s}.d4{animation-delay:.4s}.d5{animation-delay:.5s}.d6{animation-delay:.6s}.d7{animation-delay:.7s}.d8{animation-delay:.8s}
+
+/* ─── Hero ─── */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:80px 24px 60px;position:relative;overflow:hidden}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:7px 20px;border-radius:50px;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;background:rgba(123,97,255,.1);color:var(--purple);border:1px solid rgba(123,97,255,.25);margin-bottom:32px}
+.hero-badge .pulse{width:8px;height:8px;border-radius:50%;background:var(--purple);animation:orb-pulse 2s infinite}
+.hero h1{font-size:clamp(3.2rem,9vw,6rem);font-weight:900;letter-spacing:-3px;line-height:1;margin-bottom:24px}
+.hero h1 .grad{background:linear-gradient(135deg,#fff 0%,var(--purple) 35%,var(--cyan) 70%,var(--green) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero .sub{font-size:clamp(1.1rem,2.5vw,1.35rem);color:var(--dim);max-width:640px;margin:0 auto 36px;line-height:1.6}
+.hero .quote{color:var(--muted);max-width:560px;font-size:.9rem;line-height:1.7;margin:0 auto 48px;border-left:3px solid var(--purple);padding-left:20px;text-align:left;font-style:italic}
+.cta-row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:1rem;font-weight:700;letter-spacing:.3px;transition:all .25s}
+.btn-primary{background:linear-gradient(135deg,var(--purple),#5a3fff);color:#fff;box-shadow:0 4px 28px rgba(123,97,255,.35)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 40px rgba(123,97,255,.5);color:#fff}
+.btn-ghost{color:var(--dim);border:1px solid rgba(255,255,255,.1);background:transparent}
+.btn-ghost:hover{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.04);transform:translateY(-2px);color:#fff}
+
+/* ─── Stats strip ─── */
+.stats-strip{display:flex;justify-content:center;gap:48px;padding:52px 24px;border-top:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04);position:relative;overflow:hidden;flex-wrap:wrap}
 .stat{text-align:center}
-.stat-num{font-size:2.8rem;font-weight:900;background:linear-gradient(135deg,var(--cyan),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.stat-label{font-size:.72rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-top:4px}
+.stat-num{font-size:2.6rem;font-weight:900;letter-spacing:-1px}
+.stat-label{font-size:.7rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-top:4px}
 
-/* Sections */
+/* ─── Container / section ─── */
 .container{max-width:1100px;margin:0 auto;padding:0 24px}
-section{padding:100px 0}
-.section-label{font-size:.72rem;text-transform:uppercase;letter-spacing:2px;color:var(--purple);font-weight:700;margin-bottom:12px}
-section h2{font-size:2.2rem;font-weight:800;letter-spacing:-1px;margin-bottom:16px}
-section .lead{color:var(--text-dim);font-size:1.1rem;max-width:640px;margin-bottom:48px}
+section{padding:100px 0;position:relative;overflow:hidden}
+.section-label{font-size:.72rem;text-transform:uppercase;letter-spacing:2.5px;color:var(--purple);font-weight:700;margin-bottom:14px}
+section h2{font-size:clamp(2rem,4vw,2.8rem);font-weight:800;letter-spacing:-1px;margin-bottom:16px}
+section .lead{color:var(--dim);font-size:1.1rem;max-width:600px;margin-bottom:52px;line-height:1.6}
 
-/* Feature grid */
-.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px}
-.feature{background:var(--bg-card);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:32px;transition:transform .25s,box-shadow .25s}
-.feature:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(123,97,255,.12)}
-.feature-icon{font-size:2rem;margin-bottom:16px;display:block;width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center}
-.feature h3{font-size:1.15rem;font-weight:700;margin-bottom:8px}
-.feature p{color:var(--text-dim);font-size:.9rem;line-height:1.6}
+/* ─── Feature cards ─── */
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.feature{background:var(--surface);border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:32px;transition:all .3s}
+.feature:hover{transform:translateY(-4px);box-shadow:0 16px 48px rgba(123,97,255,.1);border-color:rgba(123,97,255,.15)}
+.feature-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:18px}
+.feature h3{font-size:1.1rem;font-weight:700;margin-bottom:8px}
+.feature p{color:var(--dim);font-size:.88rem;line-height:1.65}
 
-/* Flow diagram */
-.flow-visual{background:var(--bg-card);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:40px;overflow-x:auto}
-.flow-steps{display:flex;align-items:center;gap:0;min-width:700px;justify-content:center}
-.flow-step{text-align:center;padding:16px 12px;flex:0 0 auto}
-.flow-node{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 10px;font-weight:800;border:2px solid}
-.flow-step span{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim)}
-.flow-arrow{color:var(--text-muted);font-size:1.2rem;flex:0 0 auto;margin:0 -4px}
-.flow-debate{border:2px dashed var(--purple);border-radius:14px;padding:8px 4px;display:flex;align-items:center;gap:0;margin:0 -4px}
+/* ─── Pipeline flow ─── */
+.flow-visual{background:var(--surface);border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:40px;overflow-x:auto;position:relative}
+.flow-steps{display:flex;align-items:center;justify-content:center;gap:0;min-width:700px}
+.flow-step{text-align:center;padding:16px 10px;flex:0 0 auto}
+.flow-node{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:900;margin:0 auto 10px;border:2px solid;transition:transform .2s,box-shadow .2s}
+.flow-node:hover{transform:scale(1.1)}
+.flow-step span{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--dim)}
+.flow-arrow{color:var(--muted);font-size:1.1rem;flex:0 0 auto;margin:0 -2px}
+.flow-debate{border:2px dashed rgba(123,97,255,.35);border-radius:16px;padding:8px 4px;display:flex;align-items:center;gap:0;margin:0 -2px;background:rgba(123,97,255,.03)}
 
-/* Agent table */
-.agent-table{width:100%;border-collapse:collapse;margin-top:32px;font-size:.9rem}
-.agent-table th{text-align:left;padding:12px 16px;font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);border-bottom:2px solid rgba(255,255,255,.06)}
-.agent-table td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.03)}
+/* ─── Agent table ─── */
+.agent-table{width:100%;border-collapse:collapse;margin-top:32px;font-size:.88rem}
+.agent-table th{text-align:left;padding:14px 16px;font-size:.68rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);border-bottom:2px solid rgba(255,255,255,.06)}
+.agent-table td{padding:16px;border-bottom:1px solid rgba(255,255,255,.03)}
 .agent-table tr:hover td{background:rgba(123,97,255,.04)}
-.flow-tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.flow-tag{display:inline-block;padding:4px 12px;border-radius:20px;font-size:.7rem;font-weight:700;letter-spacing:.5px}
 
-/* Tech stack */
-.tech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:32px}
-.tech-item{background:var(--bg-card);border:1px solid rgba(255,255,255,.05);border-radius:10px;padding:20px;display:flex;align-items:center;gap:14px}
+/* ─── Tech grid ─── */
+.tech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:32px}
+.tech-item{background:var(--surface);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:20px;display:flex;align-items:center;gap:14px;transition:border-color .2s}
+.tech-item:hover{border-color:rgba(123,97,255,.2)}
 .tech-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.tech-item strong{display:block;font-size:.9rem}
-.tech-item small{color:var(--text-muted);font-size:.78rem}
+.tech-item strong{display:block;font-size:.88rem}
+.tech-item small{color:var(--muted);font-size:.76rem}
 
-/* Footer */
-footer{text-align:center;padding:48px 24px;border-top:1px solid rgba(255,255,255,.04);color:var(--text-muted);font-size:.8rem}
+/* ─── Alt section ─── */
+.alt-section{background:var(--surface);border-top:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04)}
+
+/* ─── Footer ─── */
+footer{text-align:center;padding:52px 24px;border-top:1px solid rgba(255,255,255,.04);color:var(--muted);font-size:.8rem}
 footer a{color:var(--purple)}
 
 @media(max-width:768px){
-  .stats-strip{gap:24px}
-  .stat-num{font-size:2rem}
+  .stats-strip{gap:20px;padding:36px 16px}
+  .stat-num{font-size:1.8rem}
   .features{grid-template-columns:1fr}
   .flow-steps{min-width:auto;flex-wrap:wrap;justify-content:center}
   .flow-arrow{display:none}
@@ -93,157 +152,181 @@ footer a{color:var(--purple)}
 
 <!-- ═══════════════ HERO ═══════════════ -->
 <section class="hero">
-  <div class="hero-badge">GitLab AI Hackathon 2026</div>
-  <h1>Reflex</h1>
-  <p class="subtitle">An adaptive immune system for GitLab repositories. 17 AI agents that detect, debate, fix, prevent, and remember &mdash; so the same failure never happens twice.</p>
-  <p class="quote">I was on-call at 2 AM when a deploy broke production. Three engineers spent four hours triaging a single null check. The postmortem never got written. The same bug broke production again two months later. That night I thought: what if every repository had an immune system that learns?</p>
-  <div class="cta-row">
-    <a href="dashboard.html" class="btn btn-primary">View Live Dashboard</a>
-    <a href="https://gitlab.com/gitlab-ai-hackathon/participants/35381885" class="btn btn-secondary">View on GitLab</a>
+  <!-- Animated background layers -->
+  <div style="position:absolute;inset:0;background:linear-gradient(160deg,#0d0520 0%,#0a0b10 40%,#041520 100%)"></div>
+  <div class="orb" style="width:600px;height:600px;background:rgba(123,97,255,.18);top:-15%;left:-10%"></div>
+  <div class="orb" style="width:500px;height:500px;background:rgba(0,229,255,.12);bottom:-10%;right:-5%;animation-delay:-7s"></div>
+  <div class="orb" style="width:400px;height:400px;background:rgba(255,51,102,.1);top:35%;right:10%;animation-delay:-13s"></div>
+  <div class="grid-bg" style="position:absolute;inset:0;opacity:.6"></div>
+
+  <!-- Content -->
+  <div style="position:relative;z-index:10;max-width:900px">
+    <div class="fade-in d1">
+      <div class="hero-badge"><span class="pulse"></span> GitLab AI Hackathon 2026</div>
+    </div>
+    <div class="fade-in d2">
+      <h1><span class="grad">Reflex</span></h1>
+    </div>
+    <div class="fade-in d3">
+      <p class="sub">An adaptive immune system for GitLab repositories. 17 AI agents that detect, debate, fix, prevent, and remember &mdash; so the same failure never happens twice.</p>
+    </div>
+    <div class="fade-in d4">
+      <p class="quote">I was on-call at 2 AM when a deploy broke production. Three engineers spent four hours triaging a single null check. The postmortem never got written. The same bug broke production again two months later. That night I thought: what if every repository had an immune system that learns?</p>
+    </div>
+    <div class="fade-in d5 cta-row">
+      <a href="dashboard.html" class="btn btn-primary">View Live Dashboard</a>
+      <a href="https://gitlab.com/gitlab-ai-hackathon/participants/35381885" class="btn btn-ghost">View on GitLab</a>
+    </div>
   </div>
 </section>
 
 <!-- ═══════════════ STATS ═══════════════ -->
 <div class="stats-strip">
-  <div class="stat"><div class="stat-num">17</div><div class="stat-label">AI Agents</div></div>
-  <div class="stat"><div class="stat-num">4</div><div class="stat-label">Orchestrated Flows</div></div>
-  <div class="stat"><div class="stat-num">98.7%</div><div class="stat-label">Carbon Reduction</div></div>
-  <div class="stat"><div class="stat-num">9min</div><div class="stat-label">Avg Resolution</div></div>
-  <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Fix Success Rate</div></div>
+  <div class="dot-grid" style="position:absolute;inset:0"></div>
+  <div class="stat fade-in" style="position:relative;z-index:1"><div class="stat-num" style="color:var(--purple)">17</div><div class="stat-label">AI Agents</div></div>
+  <div class="stat fade-in" style="position:relative;z-index:1"><div class="stat-num" style="color:var(--cyan)">4</div><div class="stat-label">Orchestrated Flows</div></div>
+  <div class="stat fade-in" style="position:relative;z-index:1"><div class="stat-num" style="color:var(--green)">98.7%</div><div class="stat-label">Carbon Reduction</div></div>
+  <div class="stat fade-in" style="position:relative;z-index:1"><div class="stat-num" style="color:var(--orange)">9min</div><div class="stat-label">Avg Resolution</div></div>
+  <div class="stat fade-in" style="position:relative;z-index:1"><div class="stat-num" style="color:var(--red)">100%</div><div class="stat-label">Fix Success Rate</div></div>
 </div>
 
-<!-- ═══════════════ WHAT MAKES IT DIFFERENT ═══════════════ -->
+<!-- ═══════════════ FEATURES ═══════════════ -->
 <section>
-  <div class="container">
-    <div class="section-label">What Makes Reflex Different</div>
-    <h2>Not a chatbot. Not a linear pipeline.</h2>
-    <p class="lead">Reflex is an adaptive, learning system that gets smarter with every incident it resolves.</p>
+  <div class="orb" style="width:500px;height:500px;background:rgba(123,97,255,.08);top:10%;right:-15%"></div>
+  <div class="container" style="position:relative;z-index:1">
+    <div class="fade-in section-label">What Makes Reflex Different</div>
+    <div class="fade-in"><h2>Not a chatbot. Not a linear pipeline.</h2></div>
+    <div class="fade-in"><p class="lead">An adaptive, learning system that gets smarter with every incident it resolves.</p></div>
 
     <div class="features">
-      <div class="feature">
-        <div class="feature-icon" style="background:rgba(123,97,255,.12);color:var(--purple)">&#x1f9e0;</div>
+      <div class="feature fade-in d1">
+        <div class="feature-icon" style="background:rgba(123,97,255,.12);color:var(--purple);font-size:1.6rem">&#x1f9e0;</div>
         <h3>Knowledge Graph</h3>
-        <p>Every resolved incident is distilled into a versioned, code-reviewable node. When the next incident arrives, Reflex searches its memory before a single agent runs. Similarity matching, recurrence detection, and pattern frequency analysis turn raw incidents into organizational intelligence.</p>
+        <p>Every resolved incident becomes a versioned, code-reviewable node. Similarity matching, recurrence detection, and pattern frequency analysis turn raw incidents into organizational intelligence.</p>
       </div>
-      <div class="feature">
-        <div class="feature-icon" style="background:rgba(255,51,102,.12);color:var(--red)">&#x2694;</div>
+      <div class="feature fade-in d2">
+        <div class="feature-icon" style="background:rgba(255,51,102,.12);color:var(--red);font-size:1.6rem">&#x2694;&#xFE0F;</div>
         <h3>Debate Protocol</h3>
-        <p>After the Root Cause Agent proposes a hypothesis, the Challenger Agent attacks it. It reads the same code independently, searches for counter-evidence, and issues a verdict: Confirmed, Refined, or Rejected. Only debate-verified diagnoses reach the Fix Agent.</p>
+        <p>The Challenger Agent attacks the Root Cause Agent's hypothesis. It reads the same code independently, searches for counter-evidence, and issues a verdict: Confirmed, Refined, or Rejected.</p>
       </div>
-      <div class="feature">
-        <div class="feature-icon" style="background:rgba(0,229,255,.12);color:var(--cyan)">&#x1f6e1;</div>
+      <div class="feature fade-in d3">
+        <div class="feature-icon" style="background:rgba(0,229,255,.12);color:var(--cyan);font-size:1.6rem">&#x1f6e1;&#xFE0F;</div>
         <h3>Predictive Prevention</h3>
-        <p>The Sentinel flow scans every new merge request against the knowledge graph, comparing incoming code against patterns that previously caused failures. It warns developers with full context before risky code ever merges.</p>
+        <p>Sentinel scans every new merge request against the knowledge graph, comparing code against patterns that previously caused failures. Warns before risky code ever merges.</p>
       </div>
-      <div class="feature">
-        <div class="feature-icon" style="background:rgba(0,230,118,.12);color:var(--green)">&#x1f310;</div>
+      <div class="feature fade-in d4">
+        <div class="feature-icon" style="background:rgba(0,230,118,.12);color:var(--green);font-size:1.6rem">&#x1f310;</div>
         <h3>Cross-Project Intelligence</h3>
-        <p>When Reflex resolves an incident in one project, it broadcasts the vulnerability pattern across the entire GitLab group. Sibling projects get hardening MRs before they become incidents of their own. One incident, resolved everywhere.</p>
+        <p>Resolving an incident in one project broadcasts the vulnerability pattern across the entire GitLab group. Sibling projects get hardening MRs automatically.</p>
       </div>
-      <div class="feature">
-        <div class="feature-icon" style="background:rgba(255,214,0,.12);color:var(--yellow)">&#x1f331;</div>
+      <div class="feature fade-in d5">
+        <div class="feature-icon" style="background:rgba(255,214,0,.12);color:var(--yellow);font-size:1.6rem">&#x1f331;</div>
         <h3>Carbon-Aware Scheduling</h3>
-        <p>Non-urgent tasks defer to low-carbon grid hours. Every postmortem includes a sustainability report comparing Reflex's carbon footprint against human incident response. Over time, each incident prevented is an incident that never costs carbon at all.</p>
+        <p>Non-urgent tasks defer to low-carbon grid hours. Every postmortem includes sustainability metrics comparing Reflex's footprint against human incident response.</p>
       </div>
-      <div class="feature">
-        <div class="feature-icon" style="background:rgba(255,107,0,.12);color:var(--orange)">&#x2601;</div>
+      <div class="feature fade-in d6">
+        <div class="feature-icon" style="background:rgba(255,107,0,.12);color:var(--orange);font-size:1.6rem">&#x2601;&#xFE0F;</div>
         <h3>Google Cloud Integration</h3>
-        <p>Cloud Logging and Cloud Monitoring integration gives agents richer context than pipeline logs alone &mdash; error rates, latency spikes, resource utilization anomalies correlated with the incident timeline.</p>
+        <p>Cloud Logging and Cloud Monitoring give agents error rates, latency spikes, and resource utilization anomalies correlated with the incident timeline.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════ THE PIPELINE ═══════════════ -->
-<section style="background:var(--bg-card);border-top:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04)">
-  <div class="container">
-    <div class="section-label">How It Works</div>
-    <h2>8-Agent Incident Pipeline with Debate Protocol</h2>
-    <p class="lead">Every incident flows through knowledge lookup, triage, adversarial root cause analysis, fix generation, validation, deployment, and postmortem &mdash; updating the knowledge graph so Reflex learns.</p>
+<!-- ═══════════════ PIPELINE ═══════════════ -->
+<section class="alt-section">
+  <div class="shimmer" style="position:absolute;inset:0"></div>
+  <div class="grid-bg" style="position:absolute;inset:0;opacity:.4"></div>
+  <div class="container" style="position:relative;z-index:1">
+    <div class="fade-in section-label">How It Works</div>
+    <div class="fade-in"><h2>8-Agent Pipeline with Debate Protocol</h2></div>
+    <div class="fade-in"><p class="lead">Every incident flows through knowledge lookup, adversarial root cause analysis, validation, and postmortem &mdash; updating the knowledge graph so Reflex learns.</p></div>
 
-    <div class="flow-visual">
-      <div class="flow-steps">
+    <div class="flow-visual fade-in">
+      <div class="spinning-gradient" style="opacity:.4"></div>
+      <div class="flow-steps" style="position:relative;z-index:1">
         <div class="flow-step">
-          <div class="flow-node" style="background:rgba(123,97,255,.15);border-color:var(--purple);color:var(--purple)">K</div>
+          <div class="flow-node" style="background:rgba(123,97,255,.15);border-color:var(--purple);color:var(--purple);box-shadow:0 0 20px rgba(123,97,255,.2)">K</div>
           <span>Knowledge<br>Lookup</span>
         </div>
         <div class="flow-arrow">&rarr;</div>
         <div class="flow-step">
-          <div class="flow-node" style="background:rgba(0,229,255,.15);border-color:var(--cyan);color:var(--cyan)">T</div>
+          <div class="flow-node" style="background:rgba(0,229,255,.15);border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 20px rgba(0,229,255,.2)">T</div>
           <span>Triage</span>
         </div>
         <div class="flow-arrow">&rarr;</div>
         <div class="flow-debate">
           <div class="flow-step">
-            <div class="flow-node" style="background:rgba(255,107,0,.15);border-color:var(--orange);color:var(--orange)">R</div>
+            <div class="flow-node" style="background:rgba(255,107,0,.15);border-color:var(--orange);color:var(--orange);box-shadow:0 0 20px rgba(255,107,0,.15)">R</div>
             <span>Root<br>Cause</span>
           </div>
-          <div class="flow-arrow">&#x21c4;</div>
+          <div class="flow-arrow" style="color:var(--purple)">&#x21c4;</div>
           <div class="flow-step">
-            <div class="flow-node" style="background:rgba(255,51,102,.15);border-color:var(--red);color:var(--red)">C</div>
+            <div class="flow-node" style="background:rgba(255,51,102,.15);border-color:var(--red);color:var(--red);box-shadow:0 0 20px rgba(255,51,102,.15)">C</div>
             <span>Challenger</span>
           </div>
         </div>
         <div class="flow-arrow">&rarr;</div>
         <div class="flow-step">
-          <div class="flow-node" style="background:rgba(0,230,118,.15);border-color:var(--green);color:var(--green)">F</div>
+          <div class="flow-node" style="background:rgba(0,230,118,.15);border-color:var(--green);color:var(--green);box-shadow:0 0 20px rgba(0,230,118,.15)">F</div>
           <span>Fix</span>
         </div>
         <div class="flow-arrow">&rarr;</div>
         <div class="flow-step">
-          <div class="flow-node" style="background:rgba(255,214,0,.15);border-color:var(--yellow);color:var(--yellow)">V</div>
+          <div class="flow-node" style="background:rgba(255,214,0,.15);border-color:var(--yellow);color:var(--yellow);box-shadow:0 0 20px rgba(255,214,0,.1)">V</div>
           <span>Validate</span>
         </div>
         <div class="flow-arrow">&rarr;</div>
         <div class="flow-step">
-          <div class="flow-node" style="background:rgba(68,138,255,.15);border-color:var(--safe);color:var(--safe)">D</div>
+          <div class="flow-node" style="background:rgba(68,138,255,.15);border-color:var(--blue);color:var(--blue);box-shadow:0 0 20px rgba(68,138,255,.15)">D</div>
           <span>Deploy</span>
         </div>
         <div class="flow-arrow">&rarr;</div>
         <div class="flow-step">
-          <div class="flow-node" style="background:rgba(123,97,255,.15);border-color:var(--purple);color:var(--purple)">P</div>
-          <span>Postmortem</span>
+          <div class="flow-node" style="background:rgba(123,97,255,.15);border-color:var(--purple);color:var(--purple);box-shadow:0 0 20px rgba(123,97,255,.2)">P</div>
+          <span>Post-<br>mortem</span>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════ ALL FOUR FLOWS ═══════════════ -->
+<!-- ═══════════════ FOUR FLOWS ═══════════════ -->
 <section>
-  <div class="container">
-    <div class="section-label">The Four Flows</div>
-    <h2>17 agents across 4 orchestrated flows</h2>
-    <p class="lead">Each flow handles a distinct phase of the incident lifecycle &mdash; from detection to prevention.</p>
+  <div class="orb" style="width:400px;height:400px;background:rgba(0,229,255,.07);bottom:5%;left:-10%"></div>
+  <div class="container" style="position:relative;z-index:1">
+    <div class="fade-in section-label">The Four Flows</div>
+    <div class="fade-in"><h2>17 agents across 4 orchestrated flows</h2></div>
+    <div class="fade-in"><p class="lead">Each flow handles a distinct phase of the incident lifecycle.</p></div>
 
-    <table class="agent-table">
+    <table class="agent-table fade-in">
       <thead>
         <tr><th>Flow</th><th>Agents</th><th>Trigger</th><th>Purpose</th></tr>
       </thead>
       <tbody>
         <tr>
           <td><span class="flow-tag" style="background:rgba(123,97,255,.15);color:var(--purple)">reflex.yaml</span></td>
-          <td style="font-weight:700">8</td>
+          <td style="font-weight:800;color:var(--purple)">8</td>
           <td>Pipeline failure, @mention</td>
-          <td>Full incident-to-fix pipeline with debate protocol and knowledge graph</td>
+          <td>Full incident-to-fix with debate protocol and knowledge graph</td>
         </tr>
         <tr>
-          <td><span class="flow-tag" style="background:rgba(0,229,255,.15);color:var(--cyan)">sentinel.yaml</span></td>
-          <td style="font-weight:700">3</td>
+          <td><span class="flow-tag" style="background:rgba(0,229,255,.12);color:var(--cyan)">sentinel.yaml</span></td>
+          <td style="font-weight:800;color:var(--cyan)">3</td>
           <td>New merge request</td>
-          <td>Predictive prevention &mdash; scan MR diffs against known incident patterns</td>
+          <td>Predictive prevention &mdash; scan diffs against known patterns</td>
         </tr>
         <tr>
-          <td><span class="flow-tag" style="background:rgba(0,230,118,.15);color:var(--green)">harden.yaml</span></td>
-          <td style="font-weight:700">3</td>
+          <td><span class="flow-tag" style="background:rgba(0,230,118,.12);color:var(--green)">harden.yaml</span></td>
+          <td style="font-weight:800;color:var(--green)">3</td>
           <td>After incident resolved</td>
-          <td>Proactive hardening &mdash; scan codebase for similar vulnerability patterns</td>
+          <td>Proactive hardening &mdash; scan codebase for similar vulnerabilities</td>
         </tr>
         <tr>
-          <td><span class="flow-tag" style="background:rgba(255,107,0,.15);color:var(--orange)">crossproject.yaml</span></td>
-          <td style="font-weight:700">3</td>
+          <td><span class="flow-tag" style="background:rgba(255,107,0,.12);color:var(--orange)">crossproject.yaml</span></td>
+          <td style="font-weight:800;color:var(--orange)">3</td>
           <td>After incident resolved</td>
-          <td>Group-level intelligence &mdash; harden sibling projects across the GitLab group</td>
+          <td>Group-level intelligence &mdash; harden sibling projects</td>
         </tr>
       </tbody>
     </table>
@@ -251,47 +334,31 @@ footer a{color:var(--purple)}
 </section>
 
 <!-- ═══════════════ TECH STACK ═══════════════ -->
-<section style="background:var(--bg-card);border-top:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04)">
-  <div class="container">
-    <div class="section-label">Built With</div>
-    <h2>Tech Stack</h2>
+<section class="alt-section">
+  <div class="dot-grid" style="position:absolute;inset:0;opacity:.3"></div>
+  <div class="container" style="position:relative;z-index:1">
+    <div class="fade-in section-label">Built With</div>
+    <div class="fade-in"><h2>Tech Stack</h2></div>
     <div class="tech-grid">
-      <div class="tech-item">
-        <div class="tech-dot" style="background:var(--purple)"></div>
-        <div><strong>GitLab Duo Agent Platform</strong><small>Flow Registry v1</small></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-dot" style="background:var(--cyan)"></div>
-        <div><strong>Anthropic Claude</strong><small>Via GitLab AI Gateway</small></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-dot" style="background:var(--green)"></div>
-        <div><strong>Google Cloud</strong><small>Logging + Monitoring</small></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-dot" style="background:var(--yellow)"></div>
-        <div><strong>Python</strong><small>Knowledge graph, GCP, sustainability</small></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-dot" style="background:var(--orange)"></div>
-        <div><strong>Playwright</strong><small>58 E2E validation tests</small></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-dot" style="background:var(--red)"></div>
-        <div><strong>Chart.js + Canvas</strong><small>Dashboard visualization</small></div>
-      </div>
+      <div class="tech-item fade-in d1"><div class="tech-dot" style="background:var(--purple)"></div><div><strong>GitLab Duo Agent Platform</strong><small>Flow Registry v1</small></div></div>
+      <div class="tech-item fade-in d2"><div class="tech-dot" style="background:var(--cyan)"></div><div><strong>Anthropic Claude</strong><small>Via GitLab AI Gateway</small></div></div>
+      <div class="tech-item fade-in d3"><div class="tech-dot" style="background:var(--green)"></div><div><strong>Google Cloud</strong><small>Logging + Monitoring</small></div></div>
+      <div class="tech-item fade-in d4"><div class="tech-dot" style="background:var(--yellow)"></div><div><strong>Python</strong><small>Knowledge graph, GCP, sustainability</small></div></div>
+      <div class="tech-item fade-in d5"><div class="tech-dot" style="background:var(--orange)"></div><div><strong>Playwright</strong><small>58 E2E validation tests</small></div></div>
+      <div class="tech-item fade-in d6"><div class="tech-dot" style="background:var(--red)"></div><div><strong>Chart.js + Canvas</strong><small>Dashboard &amp; knowledge graph viz</small></div></div>
     </div>
   </div>
 </section>
 
 <!-- ═══════════════ CTA ═══════════════ -->
 <section style="text-align:center">
-  <div class="container">
-    <h2 style="margin-bottom:16px">See it in action</h2>
-    <p class="lead" style="margin:0 auto 40px;max-width:500px">Explore the incident dashboard with live knowledge graph visualization, pattern heat maps, and sustainability metrics.</p>
-    <div class="cta-row">
+  <div class="orb" style="width:500px;height:500px;background:rgba(123,97,255,.1);top:20%;left:50%;margin-left:-250px"></div>
+  <div class="container" style="position:relative;z-index:1">
+    <div class="fade-in"><h2>See it in action</h2></div>
+    <div class="fade-in"><p class="lead" style="margin:0 auto 44px;max-width:500px;text-align:center">Explore the incident dashboard with live knowledge graph visualization, pattern heat maps, and sustainability metrics.</p></div>
+    <div class="fade-in cta-row">
       <a href="dashboard.html" class="btn btn-primary">Open Dashboard</a>
-      <a href="https://gitlab.com/gitlab-ai-hackathon/participants/35381885" class="btn btn-secondary">Source on GitLab</a>
+      <a href="https://gitlab.com/gitlab-ai-hackathon/participants/35381885" class="btn btn-ghost">Source on GitLab</a>
     </div>
   </div>
 </section>
