@@ -80,7 +80,7 @@ class CloudLoggingClient:
         project_id: Optional[str] = None,
         credentials_path: Optional[str] = None,
     ) -> None:
-        self.project_id = project_id or os.environ.get("GCP_PROJECT_ID", "reflex-demo")
+        self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT", "reflex-demo")
         self._client: Any = None
         self._demo_mode = False
 
