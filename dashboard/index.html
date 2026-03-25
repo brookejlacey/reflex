@@ -9,11 +9,11 @@
 /* ── Reset & Base ──────────────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg-0:#0b0e14;--bg-1:#111720;--bg-2:#171d2a;--bg-3:#1e2636;
-  --text-0:#e8ecf4;--text-1:#a4adc0;--text-2:#6b7a96;
-  --accent:#6c5ce7;--accent2:#00cec9;
-  --critical:#ff4444;--high:#ff8800;--medium:#ffcc00;--low:#44bb44;--safe:#4488ff;
-  --radius:10px;--glow:0 0 30px rgba(108,92,231,.15);
+  --bg-0:#0a0c12;--bg-1:#10131c;--bg-2:#161a26;--bg-3:#1c2230;
+  --text-0:#f0f4ff;--text-1:#b8c4e0;--text-2:#7888a8;
+  --accent:#7B61FF;--accent2:#00E5FF;
+  --critical:#FF3366;--high:#FF6B00;--medium:#FFD600;--low:#00E676;--safe:#448AFF;
+  --radius:10px;--glow:0 0 30px rgba(123,97,255,.2);
 }
 html{font-size:15px;scroll-behavior:smooth}
 body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg-0);color:var(--text-0);line-height:1.6;overflow-x:hidden}
@@ -24,7 +24,7 @@ a{color:var(--accent2);text-decoration:none}
 .card{background:var(--bg-1);border:1px solid rgba(255,255,255,.05);border-radius:var(--radius);padding:28px;box-shadow:var(--glow);transition:transform .25s,box-shadow .25s}
 .card:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(108,92,231,.22)}
 .section-title{font-size:1.25rem;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px}
-.section-title::before{content:'';width:4px;height:22px;background:linear-gradient(180deg,var(--accent),var(--accent2));border-radius:3px;display:inline-block}
+.section-title::before{content:'';width:4px;height:22px;background:linear-gradient(180deg,#7B61FF,#00E5FF);border-radius:3px;display:inline-block}
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 .badge-critical{background:rgba(255,68,68,.15);color:var(--critical);border:1px solid rgba(255,68,68,.3)}
 .badge-high{background:rgba(255,136,0,.15);color:var(--high);border:1px solid rgba(255,136,0,.3)}
@@ -43,14 +43,14 @@ a{color:var(--accent2);text-decoration:none}
 /* ── Header ────────────────────────────────────────────── */
 .header{background:linear-gradient(135deg,var(--bg-1) 0%,var(--bg-2) 100%);border-bottom:1px solid rgba(255,255,255,.04);padding:32px 0 0}
 .header-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
-.logo{font-size:2.4rem;font-weight:900;letter-spacing:-1px;background:linear-gradient(135deg,#fff 0%,var(--accent) 50%,var(--accent2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo{font-size:2.4rem;font-weight:900;letter-spacing:-1px;background:linear-gradient(135deg,#fff 0%,#7B61FF 40%,#00E5FF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .tagline{color:var(--text-1);font-size:.95rem;margin-top:2px}
 .header-meta{text-align:right;font-size:.8rem;color:var(--text-2)}
 
 /* ── Stats Bar ─────────────────────────────────────────── */
 .stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;padding:24px 0 28px}
 .stat-card{background:var(--bg-2);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);padding:18px 20px;text-align:center;animation:countUp .5s ease both}
-.stat-value{font-size:1.9rem;font-weight:800;background:linear-gradient(135deg,var(--text-0),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-value{font-size:1.9rem;font-weight:800;background:linear-gradient(135deg,#fff,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .stat-label{font-size:.72rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-2);margin-top:4px}
 
 /* ── Grid Layout ───────────────────────────────────────── */
@@ -101,9 +101,9 @@ tr:hover td{background:rgba(108,92,231,.06)}
 .impact-card{background:var(--bg-2);border-radius:8px;padding:20px;text-align:center;border:1px solid rgba(255,255,255,.04)}
 .impact-value{font-size:2rem;font-weight:800;margin-bottom:4px}
 .impact-label{font-size:.75rem;color:var(--text-2);text-transform:uppercase;letter-spacing:1px}
-.impact-co2 .impact-value{color:var(--low)}
-.impact-time .impact-value{color:var(--accent2)}
-.impact-tokens .impact-value{color:var(--accent)}
+.impact-co2 .impact-value{color:#00E676}
+.impact-time .impact-value{color:#00E5FF}
+.impact-tokens .impact-value{color:#7B61FF}
 
 /* ── Knowledge Graph (Canvas) ──────────────────────────── */
 #kg-canvas{width:100%;height:420px;border-radius:8px;background:var(--bg-2);cursor:grab}
@@ -282,12 +282,12 @@ const data = {
   <div class="grid grid-2" style="margin-top:24px">
     <div class="card anim-fade anim-delay-3">
       <div class="section-title">Mean Time to Resolution</div>
-      <canvas id="mttr-chart" height="260"></canvas>
+      <div style="position:relative;height:260px"><canvas id="mttr-chart"></canvas></div>
     </div>
     <div class="card anim-fade anim-delay-4">
       <div class="section-title">Sustainability Impact</div>
       <div id="sustainability"></div>
-      <canvas id="sustain-chart" height="180" style="margin-top:16px"></canvas>
+      <div style="position:relative;height:180px;margin-top:16px"><canvas id="sustain-chart"></canvas></div>
     </div>
   </div>
 
@@ -328,7 +328,7 @@ const data = {
 "use strict";
 
 /* ── Helpers ───────────────────────────────────────────── */
-const sevColor = s => ({critical:'#ff4444',high:'#ff8800',medium:'#ffcc00',low:'#44bb44',safe:'#4488ff'}[s]||'#4488ff');
+const sevColor = s => ({critical:'#FF3366',high:'#FF6B00',medium:'#FFD600',low:'#00E676',safe:'#448AFF'}[s]||'#448AFF');
 const fmtDate = d => new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 const fmtTime = d => new Date(d).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
 const fmtSec = s => s>=3600? (s/3600).toFixed(1)+'h' : s>=60? (s/60).toFixed(0)+'m' : s+'s';
@@ -427,8 +427,8 @@ new Chart(mttrCtx, {
       {
         label:'With Reflex (min)',
         data: mttrValues,
-        borderColor:'#6c5ce7',
-        backgroundColor:'rgba(108,92,231,.15)',
+        borderColor:'#7B61FF',
+        backgroundColor:'rgba(123,97,255,.2)',
         fill:true,
         tension:.35,
         pointBackgroundColor: sorted.map(i=>sevColor(i.severity)),
@@ -451,12 +451,12 @@ new Chart(mttrCtx, {
     responsive:true,
     maintainAspectRatio:false,
     plugins:{
-      legend:{labels:{color:'#a4adc0',font:{size:12}}},
+      legend:{labels:{color:'#b8c4e0',font:{size:12}}},
       tooltip:{
-        backgroundColor:'#1e2636',
-        titleColor:'#e8ecf4',
-        bodyColor:'#a4adc0',
-        borderColor:'rgba(108,92,231,.4)',
+        backgroundColor:'#1c2230',
+        titleColor:'#f0f4ff',
+        bodyColor:'#b8c4e0',
+        borderColor:'rgba(123,97,255,.5)',
         borderWidth:1,
         callbacks:{
           afterBody:(ctx)=>{
@@ -467,7 +467,7 @@ new Chart(mttrCtx, {
       }
     },
     scales:{
-      x:{ticks:{color:'#6b7a96'},grid:{color:'rgba(255,255,255,.04)'}},
+      x:{ticks:{color:'#7888a8'},grid:{color:'rgba(255,255,255,.04)'}},
       y:{ticks:{color:'#6b7a96',callback:v=>v+'m'},grid:{color:'rgba(255,255,255,.04)'},beginAtZero:true}
     }
   }
@@ -500,17 +500,17 @@ new Chart(susCtx,{
   data:{
     labels:sorted.map(i=>i.incident_id),
     datasets:[
-      {label:'Cumulative CO\u2082 (g)',data:cumCarbon,backgroundColor:'rgba(68,187,68,.5)',borderColor:'#44bb44',borderWidth:1,yAxisID:'y'},
-      {label:'Cumulative Time Saved (min)',data:cumTime,backgroundColor:'rgba(0,206,201,.35)',borderColor:'#00cec9',borderWidth:1,yAxisID:'y1'}
+      {label:'Cumulative CO\u2082 (g)',data:cumCarbon,backgroundColor:'rgba(0,230,118,.55)',borderColor:'#00E676',borderWidth:2,yAxisID:'y'},
+      {label:'Cumulative Time Saved (min)',data:cumTime,backgroundColor:'rgba(0,229,255,.4)',borderColor:'#00E5FF',borderWidth:2,yAxisID:'y1'}
     ]
   },
   options:{
     responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{labels:{color:'#a4adc0',font:{size:11}}}},
+    plugins:{legend:{labels:{color:'#b8c4e0',font:{size:11}}}},
     scales:{
-      x:{ticks:{color:'#6b7a96'},grid:{color:'rgba(255,255,255,.04)'}},
-      y:{position:'left',ticks:{color:'#44bb44',callback:v=>v+'g'},grid:{color:'rgba(255,255,255,.04)'},beginAtZero:true},
-      y1:{position:'right',ticks:{color:'#00cec9',callback:v=>v+'m'},grid:{drawOnChartArea:false},beginAtZero:true}
+      x:{ticks:{color:'#7888a8'},grid:{color:'rgba(255,255,255,.04)'}},
+      y:{position:'left',ticks:{color:'#00E676',callback:v=>v+'g'},grid:{color:'rgba(255,255,255,.04)'},beginAtZero:true},
+      y1:{position:'right',ticks:{color:'#00E5FF',callback:v=>v+'m'},grid:{drawOnChartArea:false},beginAtZero:true}
     }
   }
 });
@@ -670,9 +670,10 @@ function simulate(){
 function nodeRadius(n){ return n.type==='incident'?22:n.type==='pattern'?16:13; }
 function nodeColor(n){
   if(n.type==='incident') return sevColor(n.severity);
-  if(n.type==='pattern') return '#6c5ce7';
-  return '#00cec9';
+  if(n.type==='pattern') return '#7B61FF';
+  return '#00E5FF';
 }
+function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`}
 
 function draw(){
   ctx.clearRect(0,0,W,H);
@@ -683,7 +684,7 @@ function draw(){
     ctx.beginPath();
     ctx.moveTo(a.x,a.y);
     ctx.lineTo(b.x,b.y);
-    ctx.strokeStyle = e.type==='related'?'rgba(255,68,68,.25)':e.type==='pattern'?'rgba(108,92,231,.2)':'rgba(0,206,201,.18)';
+    ctx.strokeStyle = e.type==='related'?'rgba(255,51,102,.35)':e.type==='pattern'?'rgba(123,97,255,.3)':'rgba(0,229,255,.25)';
     ctx.lineWidth = e.type==='related'?2:1.2;
     if(e.type==='related'){ctx.setLineDash([5,4])} else {ctx.setLineDash([])}
     ctx.stroke();
@@ -700,7 +701,7 @@ function draw(){
     if(isHover || n.type==='incident'){
       ctx.beginPath();
       ctx.arc(n.x,n.y,r+(isHover?8:4),0,Math.PI*2);
-      ctx.fillStyle = col.replace(')',',0.12)').replace('rgb','rgba');
+      ctx.fillStyle = hexToRgba(col, 0.12);
       ctx.fill();
     }
 
@@ -709,7 +710,7 @@ function draw(){
     ctx.arc(n.x,n.y,r,0,Math.PI*2);
     const grad = ctx.createRadialGradient(n.x-r*.3,n.y-r*.3,r*.1,n.x,n.y,r);
     grad.addColorStop(0,col);
-    grad.addColorStop(1,col.replace(')',',0.7)').replace('rgb','rgba'));
+    grad.addColorStop(1,hexToRgba(col, 0.7));
     ctx.fillStyle = grad;
     ctx.fill();
     ctx.strokeStyle = isHover?'#fff':'rgba(255,255,255,.15)';
@@ -736,8 +737,8 @@ function draw(){
     const tw = ctx.measureText(txt).width;
     const tx = Math.min(n.x - tw/2 - 8, W - tw - 24);
     const ty = n.y - nodeRadius(n) - 32;
-    ctx.fillStyle = 'rgba(17,23,32,.92)';
-    ctx.strokeStyle = 'rgba(108,92,231,.5)';
+    ctx.fillStyle = 'rgba(16,19,28,.94)';
+    ctx.strokeStyle = 'rgba(123,97,255,.6)';
     ctx.lineWidth = 1;
     roundRect(ctx, tx, ty, tw+16, 26, 6);
     ctx.fill();
