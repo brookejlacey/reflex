@@ -3,798 +3,302 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reflex &mdash; Autonomous Incident Response Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<title>Reflex &mdash; Adaptive Immune System for GitLab</title>
 <style>
-/* ── Reset & Base ──────────────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg-0:#0a0c12;--bg-1:#10131c;--bg-2:#161a26;--bg-3:#1c2230;
-  --text-0:#f0f4ff;--text-1:#b8c4e0;--text-2:#7888a8;
-  --accent:#7B61FF;--accent2:#00E5FF;
-  --critical:#FF3366;--high:#FF6B00;--medium:#FFD600;--low:#00E676;--safe:#448AFF;
-  --radius:10px;--glow:0 0 30px rgba(123,97,255,.2);
+  --bg:#0a0c12;--bg-card:#10131c;--bg-card2:#161a26;
+  --text:#f0f4ff;--text-dim:#b8c4e0;--text-muted:#7888a8;
+  --purple:#7B61FF;--cyan:#00E5FF;--green:#00E676;
+  --red:#FF3366;--orange:#FF6B00;--yellow:#FFD600;
 }
-html{font-size:15px;scroll-behavior:smooth}
-body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg-0);color:var(--text-0);line-height:1.6;overflow-x:hidden}
-a{color:var(--accent2);text-decoration:none}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;overflow-x:hidden}
+a{color:var(--cyan);text-decoration:none;transition:color .2s}
+a:hover{color:#fff}
 
-/* ── Utilities ─────────────────────────────────────────── */
-.container{max-width:1380px;margin:0 auto;padding:0 24px}
-.card{background:var(--bg-1);border:1px solid rgba(255,255,255,.05);border-radius:var(--radius);padding:28px;box-shadow:var(--glow);transition:transform .25s,box-shadow .25s}
-.card:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(108,92,231,.22)}
-.section-title{font-size:1.25rem;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px}
-.section-title::before{content:'';width:4px;height:22px;background:linear-gradient(180deg,#7B61FF,#00E5FF);border-radius:3px;display:inline-block}
-.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
-.badge-critical{background:rgba(255,68,68,.15);color:var(--critical);border:1px solid rgba(255,68,68,.3)}
-.badge-high{background:rgba(255,136,0,.15);color:var(--high);border:1px solid rgba(255,136,0,.3)}
-.badge-medium{background:rgba(255,204,0,.15);color:var(--medium);border:1px solid rgba(255,204,0,.3)}
-.badge-low{background:rgba(68,187,68,.15);color:var(--low);border:1px solid rgba(68,187,68,.3)}
-.badge-safe{background:rgba(68,136,255,.15);color:var(--safe);border:1px solid rgba(68,136,255,.3)}
+/* Hero */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:60px 24px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 30% 20%,rgba(123,97,255,.08) 0%,transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(0,229,255,.06) 0%,transparent 50%);pointer-events:none}
+.hero-badge{display:inline-block;padding:6px 18px;border-radius:50px;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;background:rgba(123,97,255,.12);color:var(--purple);border:1px solid rgba(123,97,255,.25);margin-bottom:28px}
+.hero h1{font-size:clamp(3rem,8vw,5.5rem);font-weight:900;letter-spacing:-2px;line-height:1.05;background:linear-gradient(135deg,#fff 0%,var(--purple) 40%,var(--cyan) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:20px}
+.hero .subtitle{font-size:clamp(1.1rem,2.5vw,1.4rem);color:var(--text-dim);max-width:680px;margin:0 auto 40px}
+.hero .quote{font-style:italic;color:var(--text-muted);max-width:600px;font-size:.95rem;line-height:1.6;margin-bottom:48px;border-left:3px solid var(--purple);padding-left:20px;text-align:left}
+.cta-row{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:10px;font-size:1rem;font-weight:700;letter-spacing:.3px;transition:all .25s}
+.btn-primary{background:linear-gradient(135deg,var(--purple),#5a3fff);color:#fff;box-shadow:0 4px 24px rgba(123,97,255,.3)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(123,97,255,.45);color:#fff}
+.btn-secondary{background:rgba(0,229,255,.08);color:var(--cyan);border:1px solid rgba(0,229,255,.3)}
+.btn-secondary:hover{background:rgba(0,229,255,.15);transform:translateY(-2px);color:#fff}
 
-/* ── Animations ────────────────────────────────────────── */
-@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
-@keyframes countUp{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
-.anim-fade{animation:fadeUp .6s ease both}
-.anim-delay-1{animation-delay:.1s}.anim-delay-2{animation-delay:.2s}.anim-delay-3{animation-delay:.3s}.anim-delay-4{animation-delay:.4s}.anim-delay-5{animation-delay:.5s}.anim-delay-6{animation-delay:.6s}
-.live-dot{width:8px;height:8px;background:var(--low);border-radius:50%;display:inline-block;animation:pulse 1.8s infinite}
+/* Stats strip */
+.stats-strip{display:flex;justify-content:center;gap:48px;padding:48px 24px;border-top:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04);flex-wrap:wrap}
+.stat{text-align:center}
+.stat-num{font-size:2.8rem;font-weight:900;background:linear-gradient(135deg,var(--cyan),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-label{font-size:.72rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-top:4px}
 
-/* ── Header ────────────────────────────────────────────── */
-.header{background:linear-gradient(135deg,var(--bg-1) 0%,var(--bg-2) 100%);border-bottom:1px solid rgba(255,255,255,.04);padding:32px 0 0}
-.header-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
-.logo{font-size:2.4rem;font-weight:900;letter-spacing:-1px;background:linear-gradient(135deg,#fff 0%,#7B61FF 40%,#00E5FF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.tagline{color:var(--text-1);font-size:.95rem;margin-top:2px}
-.header-meta{text-align:right;font-size:.8rem;color:var(--text-2)}
+/* Sections */
+.container{max-width:1100px;margin:0 auto;padding:0 24px}
+section{padding:100px 0}
+.section-label{font-size:.72rem;text-transform:uppercase;letter-spacing:2px;color:var(--purple);font-weight:700;margin-bottom:12px}
+section h2{font-size:2.2rem;font-weight:800;letter-spacing:-1px;margin-bottom:16px}
+section .lead{color:var(--text-dim);font-size:1.1rem;max-width:640px;margin-bottom:48px}
 
-/* ── Stats Bar ─────────────────────────────────────────── */
-.stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;padding:24px 0 28px}
-.stat-card{background:var(--bg-2);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);padding:18px 20px;text-align:center;animation:countUp .5s ease both}
-.stat-value{font-size:1.9rem;font-weight:800;background:linear-gradient(135deg,#fff,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.stat-label{font-size:.72rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-2);margin-top:4px}
+/* Feature grid */
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px}
+.feature{background:var(--bg-card);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:32px;transition:transform .25s,box-shadow .25s}
+.feature:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(123,97,255,.12)}
+.feature-icon{font-size:2rem;margin-bottom:16px;display:block;width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+.feature h3{font-size:1.15rem;font-weight:700;margin-bottom:8px}
+.feature p{color:var(--text-dim);font-size:.9rem;line-height:1.6}
 
-/* ── Grid Layout ───────────────────────────────────────── */
-.grid{display:grid;gap:24px;padding-bottom:24px}
-.grid-2{grid-template-columns:1fr 1fr}
-.grid-3{grid-template-columns:1fr 1fr 1fr}
-@media(max-width:1024px){.grid-2,.grid-3{grid-template-columns:1fr}}
-.full-width{grid-column:1/-1}
+/* Flow diagram */
+.flow-visual{background:var(--bg-card);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:40px;overflow-x:auto}
+.flow-steps{display:flex;align-items:center;gap:0;min-width:700px;justify-content:center}
+.flow-step{text-align:center;padding:16px 12px;flex:0 0 auto}
+.flow-node{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 10px;font-weight:800;border:2px solid}
+.flow-step span{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim)}
+.flow-arrow{color:var(--text-muted);font-size:1.2rem;flex:0 0 auto;margin:0 -4px}
+.flow-debate{border:2px dashed var(--purple);border-radius:14px;padding:8px 4px;display:flex;align-items:center;gap:0;margin:0 -4px}
 
-/* ── Timeline ──────────────────────────────────────────── */
-.timeline{position:relative;padding-left:36px}
-.timeline::before{content:'';position:absolute;left:14px;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--accent),var(--accent2))}
-.tl-node{position:relative;margin-bottom:28px;cursor:pointer}
-.tl-dot{position:absolute;left:-30px;top:6px;width:14px;height:14px;border-radius:50%;border:2px solid var(--bg-1);z-index:1;transition:transform .2s}
-.tl-node:hover .tl-dot{transform:scale(1.4)}
-.tl-dot-critical{background:var(--critical);box-shadow:0 0 12px var(--critical)}
-.tl-dot-high{background:var(--high);box-shadow:0 0 12px var(--high)}
-.tl-dot-medium{background:var(--medium);box-shadow:0 0 12px var(--medium)}
-.tl-dot-low{background:var(--low);box-shadow:0 0 12px var(--low)}
-.tl-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.tl-title{font-weight:600;font-size:.95rem}
-.tl-time{font-size:.75rem;color:var(--text-2)}
-.tl-details{margin-top:10px;padding:14px;background:var(--bg-2);border-radius:8px;font-size:.82rem;color:var(--text-1);display:none;border-left:3px solid var(--accent)}
-.tl-node.active .tl-details{display:block;animation:fadeUp .3s ease}
-.tl-details p{margin-bottom:6px}
-.tl-details strong{color:var(--text-0)}
+/* Agent table */
+.agent-table{width:100%;border-collapse:collapse;margin-top:32px;font-size:.9rem}
+.agent-table th{text-align:left;padding:12px 16px;font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);border-bottom:2px solid rgba(255,255,255,.06)}
+.agent-table td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.03)}
+.agent-table tr:hover td{background:rgba(123,97,255,.04)}
+.flow-tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 
-/* ── Heatmap ───────────────────────────────────────────── */
-.heatmap-grid{display:grid;grid-template-columns:140px repeat(4,1fr);gap:3px;font-size:.78rem}
-.hm-header{background:var(--bg-2);padding:10px;text-align:center;font-weight:700;color:var(--text-1);border-radius:4px}
-.hm-label{background:var(--bg-2);padding:10px;font-weight:600;display:flex;align-items:center;border-radius:4px}
-.hm-cell{padding:16px 10px;text-align:center;border-radius:4px;font-weight:700;font-size:.85rem;transition:transform .2s}
-.hm-cell:hover{transform:scale(1.08);z-index:2}
+/* Tech stack */
+.tech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:32px}
+.tech-item{background:var(--bg-card);border:1px solid rgba(255,255,255,.05);border-radius:10px;padding:20px;display:flex;align-items:center;gap:14px}
+.tech-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.tech-item strong{display:block;font-size:.9rem}
+.tech-item small{color:var(--text-muted);font-size:.78rem}
 
-/* ── Table ─────────────────────────────────────────────── */
-.table-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:.82rem}
-th{text-align:left;padding:12px 14px;background:var(--bg-2);color:var(--text-1);font-weight:600;text-transform:uppercase;letter-spacing:.6px;font-size:.7rem;cursor:pointer;user-select:none;white-space:nowrap;border-bottom:2px solid rgba(255,255,255,.05)}
-th:hover{color:var(--text-0)}
-th .sort-arrow{opacity:.4;margin-left:4px}
-th.sorted .sort-arrow{opacity:1;color:var(--accent2)}
-td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.03)}
-tr:hover td{background:rgba(108,92,231,.06)}
-.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:.68rem;background:var(--bg-3);color:var(--text-1);margin:1px 2px}
+/* Footer */
+footer{text-align:center;padding:48px 24px;border-top:1px solid rgba(255,255,255,.04);color:var(--text-muted);font-size:.8rem}
+footer a{color:var(--purple)}
 
-/* ── Sustainability ────────────────────────────────────── */
-.impact-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px}
-.impact-card{background:var(--bg-2);border-radius:8px;padding:20px;text-align:center;border:1px solid rgba(255,255,255,.04)}
-.impact-value{font-size:2rem;font-weight:800;margin-bottom:4px}
-.impact-label{font-size:.75rem;color:var(--text-2);text-transform:uppercase;letter-spacing:1px}
-.impact-co2 .impact-value{color:#00E676}
-.impact-time .impact-value{color:#00E5FF}
-.impact-tokens .impact-value{color:#7B61FF}
-
-/* ── Knowledge Graph (Canvas) ──────────────────────────── */
-#kg-canvas{width:100%;height:420px;border-radius:8px;background:var(--bg-2);cursor:grab}
-#kg-canvas:active{cursor:grabbing}
-.kg-legend{display:flex;gap:16px;margin-top:12px;font-size:.75rem;color:var(--text-2);flex-wrap:wrap}
-.kg-legend-item{display:flex;align-items:center;gap:5px}
-.kg-legend-dot{width:10px;height:10px;border-radius:50%}
-
-/* ── Footer ────────────────────────────────────────────── */
-.footer{text-align:center;padding:32px 0;font-size:.75rem;color:var(--text-2);border-top:1px solid rgba(255,255,255,.04);margin-top:12px}
+@media(max-width:768px){
+  .stats-strip{gap:24px}
+  .stat-num{font-size:2rem}
+  .features{grid-template-columns:1fr}
+  .flow-steps{min-width:auto;flex-wrap:wrap;justify-content:center}
+  .flow-arrow{display:none}
+  .flow-debate{flex-wrap:wrap;justify-content:center}
+}
 </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════
-     DATA  (injected from .reflex/knowledge/incidents.json)
-     ═══════════════════════════════════════════════════════ -->
-<script>
-const data = {
-  "version": "1.0",
-  "updated_at": "2026-03-16T00:00:00+00:00",
-  "stats": {
-    "total_incidents": 3,
-    "total_patterns": 5,
-    "incidents_by_severity": {"high": 2, "critical": 1},
-    "incidents_by_category": {"null_reference": 2, "resource_exhaustion": 1, "config": 1, "type_error": 1},
-    "top_recurring_patterns": [
-      {
-        "pattern": {
-          "pattern_id": "a1b2c3d4e5f6",
-          "name": "Unsafe direct dict/attribute access on nullable",
-          "category": "null_reference",
-          "risk_level": "high"
-        },
-        "occurrences": 2,
-        "incident_ids": ["INC-001", "INC-003"]
-      }
-    ],
-    "avg_resolution_time_seconds": 540.0,
-    "fix_success_rate": 1.0,
-    "total_recurrences": 1
-  },
-  "incidents": [
-    {
-      "incident_id": "INC-001",
-      "title": "Payment API 500 errors on empty cart checkout",
-      "severity": "critical",
-      "failure_type": "runtime",
-      "root_cause_summary": "Payment handler accessed cart.items[0] without checking for empty cart, causing IndexError when users clicked checkout with an empty cart.",
-      "fix_strategy": "Guard cart.items access with empty check, return 400 for empty carts",
-      "fix_type": "patch",
-      "patterns": [
-        {"pattern_id":"a1b2c3d4e5f6","name":"Unsafe direct dict/attribute access on nullable","category":"null_reference","risk_level":"high"}
-      ],
-      "affected_files": ["src/services/payment.py"],
-      "affected_services": ["payment-api"],
-      "breaking_commit": "e4f5a6b",
-      "fix_commit": "d7c8e9f",
-      "resolution_time_seconds": 480,
-      "fix_successful": true,
-      "recurrence_count": 1,
-      "related_incidents": ["INC-003"],
-      "tags": ["null-safety", "input-validation", "api"],
-      "created_at": "2026-02-15T14:32:00+00:00",
-      "resolved_at": "2026-02-15T14:40:00+00:00",
-      "lessons_learned": [
-        "Always guard collection access with empty/null checks",
-        "API endpoints should validate input state before processing",
-        "Empty state is a common edge case that needs explicit test coverage"
-      ],
-      "sustainability_metrics": {"tokens_used":12500,"carbon_grams_co2":5.8,"time_saved_minutes":165}
-    },
-    {
-      "incident_id": "INC-002",
-      "title": "Database connection pool exhaustion under load",
-      "severity": "high",
-      "failure_type": "runtime",
-      "root_cause_summary": "Connection pool max_size was set to 10 in config but the new async worker count was raised to 50, causing pool starvation under normal load.",
-      "fix_strategy": "Align pool max_size with worker count, add pool exhaustion monitoring alert",
-      "fix_type": "config_change",
-      "patterns": [
-        {"pattern_id":"b2c3d4e5f6a7","name":"Resource limit mismatch between components","category":"resource_exhaustion","risk_level":"high"},
-        {"pattern_id":"c3d4e5f6a7b8","name":"Config drift between deployment parameters","category":"config","risk_level":"medium"}
-      ],
-      "affected_files": ["config/database.yml", "config/workers.yml"],
-      "affected_services": ["payment-api", "auth-service"],
-      "breaking_commit": "f1a2b3c",
-      "fix_commit": "a4b5c6d",
-      "resolution_time_seconds": 720,
-      "fix_successful": true,
-      "recurrence_count": 0,
-      "related_incidents": [],
-      "tags": ["config", "database", "scalability"],
-      "created_at": "2026-03-01T09:15:00+00:00",
-      "resolved_at": "2026-03-01T09:27:00+00:00",
-      "lessons_learned": [
-        "Resource limits should be validated against dependent component configurations",
-        "Add CI checks that verify config consistency across components",
-        "Pool exhaustion should trigger alerts before reaching 100%"
-      ],
-      "sustainability_metrics": {"tokens_used":8200,"carbon_grams_co2":3.8,"time_saved_minutes":142}
-    },
-    {
-      "incident_id": "INC-003",
-      "title": "User listing crash on empty database",
-      "severity": "high",
-      "failure_type": "test",
-      "root_cause_summary": "PR #247 optimization replaced safe .get() with direct dict access on query result, causing TypeError when database returns empty result set.",
-      "fix_strategy": "Restore null-safe access pattern: use conditional check before accessing first_user properties",
-      "fix_type": "patch",
-      "patterns": [
-        {"pattern_id":"a1b2c3d4e5f6","name":"Unsafe direct dict/attribute access on nullable","category":"null_reference","risk_level":"high"},
-        {"pattern_id":"d4e5f6a7b8c9","name":"Premature optimization removing safety guards","category":"type_error","risk_level":"medium"}
-      ],
-      "affected_files": ["src/demo/app.py"],
-      "affected_services": ["user-service"],
-      "breaking_commit": "a3f7c91",
-      "fix_commit": null,
-      "resolution_time_seconds": 420,
-      "fix_successful": true,
-      "recurrence_count": 0,
-      "related_incidents": ["INC-001"],
-      "tags": ["null-safety", "optimization", "api"],
-      "created_at": "2026-03-16T10:00:00+00:00",
-      "resolved_at": "2026-03-16T10:07:00+00:00",
-      "lessons_learned": [
-        "Optimizations that remove safety checks should require explicit empty-state tests",
-        "Code review should flag removal of .get() / optional chaining as a risk",
-        "This pattern has recurred — consider adding a linter rule"
-      ],
-      "sustainability_metrics": {"tokens_used":15000,"carbon_grams_co2":7.0,"time_saved_minutes":173}
-    }
-  ]
-};
-</script>
+<!-- ═══════════════ HERO ═══════════════ -->
+<section class="hero">
+  <div class="hero-badge">GitLab AI Hackathon 2026</div>
+  <h1>Reflex</h1>
+  <p class="subtitle">An adaptive immune system for GitLab repositories. 17 AI agents that detect, debate, fix, prevent, and remember &mdash; so the same failure never happens twice.</p>
+  <p class="quote">I was on-call at 2 AM when a deploy broke production. Three engineers spent four hours triaging a single null check. The postmortem never got written. The same bug broke production again two months later. That night I thought: what if every repository had an immune system that learns?</p>
+  <div class="cta-row">
+    <a href="dashboard.html" class="btn btn-primary">View Live Dashboard</a>
+    <a href="https://gitlab.com/gitlab-ai-hackathon/participants/35381885" class="btn btn-secondary">View on GitLab</a>
+  </div>
+</section>
 
-<!-- ═══════════════════════════════════════════════════════
-     HEADER
-     ═══════════════════════════════════════════════════════ -->
-<header class="header">
+<!-- ═══════════════ STATS ═══════════════ -->
+<div class="stats-strip">
+  <div class="stat"><div class="stat-num">17</div><div class="stat-label">AI Agents</div></div>
+  <div class="stat"><div class="stat-num">4</div><div class="stat-label">Orchestrated Flows</div></div>
+  <div class="stat"><div class="stat-num">98.7%</div><div class="stat-label">Carbon Reduction</div></div>
+  <div class="stat"><div class="stat-num">9min</div><div class="stat-label">Avg Resolution</div></div>
+  <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Fix Success Rate</div></div>
+</div>
+
+<!-- ═══════════════ WHAT MAKES IT DIFFERENT ═══════════════ -->
+<section>
   <div class="container">
-    <div class="header-inner">
-      <div>
-        <div class="logo">Reflex</div>
-        <div class="tagline">Autonomous Incident Response</div>
+    <div class="section-label">What Makes Reflex Different</div>
+    <h2>Not a chatbot. Not a linear pipeline.</h2>
+    <p class="lead">Reflex is an adaptive, learning system that gets smarter with every incident it resolves.</p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(123,97,255,.12);color:var(--purple)">&#x1f9e0;</div>
+        <h3>Knowledge Graph</h3>
+        <p>Every resolved incident is distilled into a versioned, code-reviewable node. When the next incident arrives, Reflex searches its memory before a single agent runs. Similarity matching, recurrence detection, and pattern frequency analysis turn raw incidents into organizational intelligence.</p>
       </div>
-      <div class="header-meta">
-        <div><span class="live-dot"></span>&ensp;Live &mdash; Knowledge graph synced</div>
-        <div id="header-updated"></div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(255,51,102,.12);color:var(--red)">&#x2694;</div>
+        <h3>Debate Protocol</h3>
+        <p>After the Root Cause Agent proposes a hypothesis, the Challenger Agent attacks it. It reads the same code independently, searches for counter-evidence, and issues a verdict: Confirmed, Refined, or Rejected. Only debate-verified diagnoses reach the Fix Agent.</p>
       </div>
-    </div>
-
-    <!-- Stats Bar -->
-    <div class="stats-bar" id="stats-bar"></div>
-  </div>
-</header>
-
-<!-- ═══════════════════════════════════════════════════════
-     MAIN CONTENT
-     ═══════════════════════════════════════════════════════ -->
-<main class="container" style="padding-top:28px">
-
-  <!-- Row 1: Timeline + Heatmap -->
-  <div class="grid grid-2">
-    <div class="card anim-fade anim-delay-1">
-      <div class="section-title">Incident Timeline</div>
-      <div class="timeline" id="timeline"></div>
-    </div>
-    <div class="card anim-fade anim-delay-2">
-      <div class="section-title">Pattern Frequency Heat Map</div>
-      <div id="heatmap"></div>
-    </div>
-  </div>
-
-  <!-- Row 2: MTTR Chart + Sustainability -->
-  <div class="grid grid-2" style="margin-top:24px">
-    <div class="card anim-fade anim-delay-3">
-      <div class="section-title">Mean Time to Resolution</div>
-      <div style="position:relative;height:260px"><canvas id="mttr-chart"></canvas></div>
-    </div>
-    <div class="card anim-fade anim-delay-4">
-      <div class="section-title">Sustainability Impact</div>
-      <div id="sustainability"></div>
-      <div style="position:relative;height:180px;margin-top:16px"><canvas id="sustain-chart"></canvas></div>
-    </div>
-  </div>
-
-  <!-- Row 3: Incidents Table -->
-  <div class="grid" style="margin-top:24px">
-    <div class="card anim-fade anim-delay-5 full-width">
-      <div class="section-title">Recent Incidents</div>
-      <div class="table-wrap" id="table-wrap"></div>
-    </div>
-  </div>
-
-  <!-- Row 4: Knowledge Graph -->
-  <div class="grid" style="margin-top:24px">
-    <div class="card anim-fade anim-delay-6 full-width">
-      <div class="section-title">Knowledge Graph</div>
-      <canvas id="kg-canvas"></canvas>
-      <div class="kg-legend">
-        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:var(--critical)"></div> Incident (Critical)</div>
-        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:var(--high)"></div> Incident (High)</div>
-        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:var(--accent)"></div> Pattern</div>
-        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:var(--accent2)"></div> Service</div>
-        <div class="kg-legend-item" style="margin-left:auto;color:var(--text-2);font-style:italic">Drag nodes to explore</div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(0,229,255,.12);color:var(--cyan)">&#x1f6e1;</div>
+        <h3>Predictive Prevention</h3>
+        <p>The Sentinel flow scans every new merge request against the knowledge graph, comparing incoming code against patterns that previously caused failures. It warns developers with full context before risky code ever merges.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(0,230,118,.12);color:var(--green)">&#x1f310;</div>
+        <h3>Cross-Project Intelligence</h3>
+        <p>When Reflex resolves an incident in one project, it broadcasts the vulnerability pattern across the entire GitLab group. Sibling projects get hardening MRs before they become incidents of their own. One incident, resolved everywhere.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(255,214,0,.12);color:var(--yellow)">&#x1f331;</div>
+        <h3>Carbon-Aware Scheduling</h3>
+        <p>Non-urgent tasks defer to low-carbon grid hours. Every postmortem includes a sustainability report comparing Reflex's carbon footprint against human incident response. Over time, each incident prevented is an incident that never costs carbon at all.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(255,107,0,.12);color:var(--orange)">&#x2601;</div>
+        <h3>Google Cloud Integration</h3>
+        <p>Cloud Logging and Cloud Monitoring integration gives agents richer context than pipeline logs alone &mdash; error rates, latency spikes, resource utilization anomalies correlated with the incident timeline.</p>
       </div>
     </div>
   </div>
+</section>
 
-</main>
+<!-- ═══════════════ THE PIPELINE ═══════════════ -->
+<section style="background:var(--bg-card);border-top:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04)">
+  <div class="container">
+    <div class="section-label">How It Works</div>
+    <h2>8-Agent Incident Pipeline with Debate Protocol</h2>
+    <p class="lead">Every incident flows through knowledge lookup, triage, adversarial root cause analysis, fix generation, validation, deployment, and postmortem &mdash; updating the knowledge graph so Reflex learns.</p>
 
-<footer class="footer">
-  Reflex &mdash; Autonomous Incident Response &middot; Knowledge graph powered by AI &middot; Built for StableHacks 2026
+    <div class="flow-visual">
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-node" style="background:rgba(123,97,255,.15);border-color:var(--purple);color:var(--purple)">K</div>
+          <span>Knowledge<br>Lookup</span>
+        </div>
+        <div class="flow-arrow">&rarr;</div>
+        <div class="flow-step">
+          <div class="flow-node" style="background:rgba(0,229,255,.15);border-color:var(--cyan);color:var(--cyan)">T</div>
+          <span>Triage</span>
+        </div>
+        <div class="flow-arrow">&rarr;</div>
+        <div class="flow-debate">
+          <div class="flow-step">
+            <div class="flow-node" style="background:rgba(255,107,0,.15);border-color:var(--orange);color:var(--orange)">R</div>
+            <span>Root<br>Cause</span>
+          </div>
+          <div class="flow-arrow">&#x21c4;</div>
+          <div class="flow-step">
+            <div class="flow-node" style="background:rgba(255,51,102,.15);border-color:var(--red);color:var(--red)">C</div>
+            <span>Challenger</span>
+          </div>
+        </div>
+        <div class="flow-arrow">&rarr;</div>
+        <div class="flow-step">
+          <div class="flow-node" style="background:rgba(0,230,118,.15);border-color:var(--green);color:var(--green)">F</div>
+          <span>Fix</span>
+        </div>
+        <div class="flow-arrow">&rarr;</div>
+        <div class="flow-step">
+          <div class="flow-node" style="background:rgba(255,214,0,.15);border-color:var(--yellow);color:var(--yellow)">V</div>
+          <span>Validate</span>
+        </div>
+        <div class="flow-arrow">&rarr;</div>
+        <div class="flow-step">
+          <div class="flow-node" style="background:rgba(68,138,255,.15);border-color:var(--safe);color:var(--safe)">D</div>
+          <span>Deploy</span>
+        </div>
+        <div class="flow-arrow">&rarr;</div>
+        <div class="flow-step">
+          <div class="flow-node" style="background:rgba(123,97,255,.15);border-color:var(--purple);color:var(--purple)">P</div>
+          <span>Postmortem</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ ALL FOUR FLOWS ═══════════════ -->
+<section>
+  <div class="container">
+    <div class="section-label">The Four Flows</div>
+    <h2>17 agents across 4 orchestrated flows</h2>
+    <p class="lead">Each flow handles a distinct phase of the incident lifecycle &mdash; from detection to prevention.</p>
+
+    <table class="agent-table">
+      <thead>
+        <tr><th>Flow</th><th>Agents</th><th>Trigger</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="flow-tag" style="background:rgba(123,97,255,.15);color:var(--purple)">reflex.yaml</span></td>
+          <td style="font-weight:700">8</td>
+          <td>Pipeline failure, @mention</td>
+          <td>Full incident-to-fix pipeline with debate protocol and knowledge graph</td>
+        </tr>
+        <tr>
+          <td><span class="flow-tag" style="background:rgba(0,229,255,.15);color:var(--cyan)">sentinel.yaml</span></td>
+          <td style="font-weight:700">3</td>
+          <td>New merge request</td>
+          <td>Predictive prevention &mdash; scan MR diffs against known incident patterns</td>
+        </tr>
+        <tr>
+          <td><span class="flow-tag" style="background:rgba(0,230,118,.15);color:var(--green)">harden.yaml</span></td>
+          <td style="font-weight:700">3</td>
+          <td>After incident resolved</td>
+          <td>Proactive hardening &mdash; scan codebase for similar vulnerability patterns</td>
+        </tr>
+        <tr>
+          <td><span class="flow-tag" style="background:rgba(255,107,0,.15);color:var(--orange)">crossproject.yaml</span></td>
+          <td style="font-weight:700">3</td>
+          <td>After incident resolved</td>
+          <td>Group-level intelligence &mdash; harden sibling projects across the GitLab group</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════ TECH STACK ═══════════════ -->
+<section style="background:var(--bg-card);border-top:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04)">
+  <div class="container">
+    <div class="section-label">Built With</div>
+    <h2>Tech Stack</h2>
+    <div class="tech-grid">
+      <div class="tech-item">
+        <div class="tech-dot" style="background:var(--purple)"></div>
+        <div><strong>GitLab Duo Agent Platform</strong><small>Flow Registry v1</small></div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-dot" style="background:var(--cyan)"></div>
+        <div><strong>Anthropic Claude</strong><small>Via GitLab AI Gateway</small></div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-dot" style="background:var(--green)"></div>
+        <div><strong>Google Cloud</strong><small>Logging + Monitoring</small></div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-dot" style="background:var(--yellow)"></div>
+        <div><strong>Python</strong><small>Knowledge graph, GCP, sustainability</small></div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-dot" style="background:var(--orange)"></div>
+        <div><strong>Playwright</strong><small>58 E2E validation tests</small></div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-dot" style="background:var(--red)"></div>
+        <div><strong>Chart.js + Canvas</strong><small>Dashboard visualization</small></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ CTA ═══════════════ -->
+<section style="text-align:center">
+  <div class="container">
+    <h2 style="margin-bottom:16px">See it in action</h2>
+    <p class="lead" style="margin:0 auto 40px;max-width:500px">Explore the incident dashboard with live knowledge graph visualization, pattern heat maps, and sustainability metrics.</p>
+    <div class="cta-row">
+      <a href="dashboard.html" class="btn btn-primary">Open Dashboard</a>
+      <a href="https://gitlab.com/gitlab-ai-hackathon/participants/35381885" class="btn btn-secondary">Source on GitLab</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>Reflex &mdash; Adaptive Immune System for GitLab &middot; Built for the <a href="https://gitlab.com/gitlab-ai-hackathon">GitLab AI Hackathon 2026</a></p>
 </footer>
 
-<!-- ═══════════════════════════════════════════════════════
-     JAVASCRIPT
-     ═══════════════════════════════════════════════════════ -->
-<script>
-(function(){
-"use strict";
-
-/* ── Helpers ───────────────────────────────────────────── */
-const sevColor = s => ({critical:'#FF3366',high:'#FF6B00',medium:'#FFD600',low:'#00E676',safe:'#448AFF'}[s]||'#448AFF');
-const fmtDate = d => new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-const fmtTime = d => new Date(d).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-const fmtSec = s => s>=3600? (s/3600).toFixed(1)+'h' : s>=60? (s/60).toFixed(0)+'m' : s+'s';
-const incidents = data.incidents;
-const stats = data.stats;
-
-/* ── Header meta ───────────────────────────────────────── */
-document.getElementById('header-updated').textContent = 'Updated ' + fmtDate(data.updated_at) + ' ' + fmtTime(data.updated_at);
-
-/* ── Stats Bar ─────────────────────────────────────────── */
-const totalCarbon = incidents.reduce((a,i)=>a+i.sustainability_metrics.carbon_grams_co2,0);
-const totalTime = incidents.reduce((a,i)=>a+i.sustainability_metrics.time_saved_minutes,0);
-const statItems = [
-  {value:stats.total_incidents, label:'Total Incidents'},
-  {value:stats.total_patterns, label:'Patterns Tracked'},
-  {value:(stats.fix_success_rate*100).toFixed(0)+'%', label:'Fix Success Rate'},
-  {value:fmtSec(stats.avg_resolution_time_seconds), label:'Avg MTTR'},
-  {value:totalCarbon.toFixed(1)+'g', label:'CO\u2082 Saved'},
-];
-const sb = document.getElementById('stats-bar');
-statItems.forEach((s,i)=>{
-  const d = document.createElement('div');
-  d.className = 'stat-card';
-  d.style.animationDelay = (i*0.08)+'s';
-  d.innerHTML = `<div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div>`;
-  sb.appendChild(d);
-});
-
-/* ── Timeline ──────────────────────────────────────────── */
-const tl = document.getElementById('timeline');
-const sorted = [...incidents].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-sorted.forEach(inc=>{
-  const node = document.createElement('div');
-  node.className = 'tl-node';
-  node.innerHTML = `
-    <div class="tl-dot tl-dot-${inc.severity}"></div>
-    <div class="tl-header">
-      <span class="badge badge-${inc.severity}">${inc.severity}</span>
-      <span class="tl-title">${inc.incident_id}: ${inc.title}</span>
-    </div>
-    <div class="tl-time">${fmtDate(inc.created_at)} ${fmtTime(inc.created_at)} &mdash; Resolved in ${fmtSec(inc.resolution_time_seconds)}</div>
-    <div class="tl-details">
-      <p><strong>Root Cause:</strong> ${inc.root_cause_summary}</p>
-      <p><strong>Fix:</strong> ${inc.fix_strategy}</p>
-      <p><strong>Files:</strong> ${inc.affected_files.join(', ')}</p>
-      <p><strong>Patterns:</strong> ${inc.patterns.map(p=>p.name).join(', ')}</p>
-      ${inc.related_incidents.length?`<p><strong>Related:</strong> ${inc.related_incidents.join(', ')}</p>`:''}
-    </div>`;
-  node.addEventListener('click',()=>node.classList.toggle('active'));
-  tl.appendChild(node);
-});
-
-/* ── Heatmap ───────────────────────────────────────────── */
-const categories = ['null_reference','resource_exhaustion','config','type_error'];
-const riskLevels = ['critical','high','medium','low'];
-const catLabels = {'null_reference':'Null Reference','resource_exhaustion':'Resource Exhaustion','config':'Config Drift','type_error':'Type Error'};
-
-// Build frequency map
-const freqMap = {};
-categories.forEach(c=> riskLevels.forEach(r=> freqMap[c+'|'+r]=0));
-incidents.forEach(inc=> inc.patterns.forEach(p=>{
-  const k = p.category+'|'+p.risk_level;
-  if(k in freqMap) freqMap[k]++;
-}));
-const maxFreq = Math.max(1,...Object.values(freqMap));
-
-const hm = document.getElementById('heatmap');
-const grid = document.createElement('div');
-grid.className = 'heatmap-grid';
-// Header row
-grid.innerHTML = '<div class="hm-header"></div>' + riskLevels.map(r=>`<div class="hm-header">${r[0].toUpperCase()+r.slice(1)}</div>`).join('');
-categories.forEach(cat=>{
-  grid.innerHTML += `<div class="hm-label">${catLabels[cat]}</div>`;
-  riskLevels.forEach(r=>{
-    const v = freqMap[cat+'|'+r];
-    const intensity = v/maxFreq;
-    const col = sevColor(r);
-    const bg = intensity>0? `rgba(${hexToRgb(col)},${0.12+intensity*0.55})` : 'rgba(255,255,255,.02)';
-    grid.innerHTML += `<div class="hm-cell" style="background:${bg};color:${intensity>0?col:'var(--text-2)'}" title="${catLabels[cat]} / ${r}: ${v}">${v||'&mdash;'}</div>`;
-  });
-});
-hm.appendChild(grid);
-
-function hexToRgb(h){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return r+','+g+','+b}
-
-/* ── MTTR Chart ────────────────────────────────────────── */
-const mttrCtx = document.getElementById('mttr-chart').getContext('2d');
-const mttrLabels = sorted.map(i=> fmtDate(i.created_at));
-const mttrValues = sorted.map(i=> i.resolution_time_seconds/60);
-const baselineMTTR = 45; // "Before Reflex" baseline in minutes
-new Chart(mttrCtx, {
-  type:'line',
-  data:{
-    labels: mttrLabels,
-    datasets:[
-      {
-        label:'With Reflex (min)',
-        data: mttrValues,
-        borderColor:'#7B61FF',
-        backgroundColor:'rgba(123,97,255,.2)',
-        fill:true,
-        tension:.35,
-        pointBackgroundColor: sorted.map(i=>sevColor(i.severity)),
-        pointRadius:7,
-        pointHoverRadius:10,
-        borderWidth:3,
-      },
-      {
-        label:'Baseline without Reflex (min)',
-        data: mttrValues.map(()=>baselineMTTR),
-        borderColor:'rgba(255,255,255,.2)',
-        borderDash:[8,6],
-        pointRadius:0,
-        borderWidth:2,
-        fill:false,
-      }
-    ]
-  },
-  options:{
-    responsive:true,
-    maintainAspectRatio:false,
-    plugins:{
-      legend:{labels:{color:'#b8c4e0',font:{size:12}}},
-      tooltip:{
-        backgroundColor:'#1c2230',
-        titleColor:'#f0f4ff',
-        bodyColor:'#b8c4e0',
-        borderColor:'rgba(123,97,255,.5)',
-        borderWidth:1,
-        callbacks:{
-          afterBody:(ctx)=>{
-            const idx=ctx[0].dataIndex;
-            return sorted[idx].title;
-          }
-        }
-      }
-    },
-    scales:{
-      x:{ticks:{color:'#7888a8'},grid:{color:'rgba(255,255,255,.04)'}},
-      y:{ticks:{color:'#6b7a96',callback:v=>v+'m'},grid:{color:'rgba(255,255,255,.04)'},beginAtZero:true}
-    }
-  }
-});
-
-/* ── Sustainability ────────────────────────────────────── */
-const sDiv = document.getElementById('sustainability');
-sDiv.innerHTML = `
-  <div class="impact-cards">
-    <div class="impact-card impact-co2">
-      <div class="impact-value">${totalCarbon.toFixed(1)}g</div>
-      <div class="impact-label">CO&#8322; Avoided</div>
-    </div>
-    <div class="impact-card impact-time">
-      <div class="impact-value">${(totalTime/60).toFixed(1)}h</div>
-      <div class="impact-label">Engineer Time Saved</div>
-    </div>
-    <div class="impact-card impact-tokens">
-      <div class="impact-value">${(incidents.reduce((a,i)=>a+i.sustainability_metrics.tokens_used,0)/1000).toFixed(1)}k</div>
-      <div class="impact-label">Tokens Used</div>
-    </div>
-  </div>`;
-
-const susCtx = document.getElementById('sustain-chart').getContext('2d');
-const cumCarbon = [], cumTime = [];
-let cc=0, ct=0;
-sorted.forEach(i=>{cc+=i.sustainability_metrics.carbon_grams_co2;ct+=i.sustainability_metrics.time_saved_minutes;cumCarbon.push(cc);cumTime.push(ct)});
-new Chart(susCtx,{
-  type:'bar',
-  data:{
-    labels:sorted.map(i=>i.incident_id),
-    datasets:[
-      {label:'Cumulative CO\u2082 (g)',data:cumCarbon,backgroundColor:'rgba(0,230,118,.55)',borderColor:'#00E676',borderWidth:2,yAxisID:'y'},
-      {label:'Cumulative Time Saved (min)',data:cumTime,backgroundColor:'rgba(0,229,255,.4)',borderColor:'#00E5FF',borderWidth:2,yAxisID:'y1'}
-    ]
-  },
-  options:{
-    responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{labels:{color:'#b8c4e0',font:{size:11}}}},
-    scales:{
-      x:{ticks:{color:'#7888a8'},grid:{color:'rgba(255,255,255,.04)'}},
-      y:{position:'left',ticks:{color:'#00E676',callback:v=>v+'g'},grid:{color:'rgba(255,255,255,.04)'},beginAtZero:true},
-      y1:{position:'right',ticks:{color:'#00E5FF',callback:v=>v+'m'},grid:{drawOnChartArea:false},beginAtZero:true}
-    }
-  }
-});
-
-/* ── Incidents Table ───────────────────────────────────── */
-let sortCol = null, sortAsc = true;
-function renderTable(){
-  const s = [...incidents];
-  if(sortCol !== null){
-    s.sort((a,b)=>{
-      let va=a[sortCol],vb=b[sortCol];
-      if(typeof va==='string') return sortAsc?va.localeCompare(vb):vb.localeCompare(va);
-      return sortAsc?va-vb:vb-va;
-    });
-  }
-  const cols = [
-    {key:'incident_id',label:'ID'},
-    {key:'title',label:'Title'},
-    {key:'severity',label:'Severity'},
-    {key:'failure_type',label:'Category'},
-    {key:'resolution_time_seconds',label:'Resolution'},
-    {key:'fix_successful',label:'Fix Status'},
-    {key:'_patterns',label:'Patterns'},
-  ];
-  let html = '<table><thead><tr>';
-  cols.forEach(c=>{
-    const sorted = sortCol===c.key;
-    html += `<th data-col="${c.key}" class="${sorted?'sorted':''}">${c.label}<span class="sort-arrow">${sorted?(sortAsc?'&#9650;':'&#9660;'):'&#9650;'}</span></th>`;
-  });
-  html += '</tr></thead><tbody>';
-  s.forEach(inc=>{
-    html += '<tr>';
-    html += `<td style="font-weight:700;color:var(--accent2)">${inc.incident_id}</td>`;
-    html += `<td>${inc.title}</td>`;
-    html += `<td><span class="badge badge-${inc.severity}">${inc.severity}</span></td>`;
-    html += `<td>${inc.failure_type}</td>`;
-    html += `<td>${fmtSec(inc.resolution_time_seconds)}</td>`;
-    html += `<td>${inc.fix_successful?'<span style="color:var(--low)">&#10003; Fixed</span>':'<span style="color:var(--critical)">&#10007; Open</span>'}</td>`;
-    html += `<td>${inc.patterns.map(p=>`<span class="tag">${p.name.split(' ').slice(0,4).join(' ')}</span>`).join('')}</td>`;
-    html += '</tr>';
-  });
-  html += '</tbody></table>';
-  document.getElementById('table-wrap').innerHTML = html;
-  document.querySelectorAll('#table-wrap th').forEach(th=>{
-    th.addEventListener('click',()=>{
-      const col = th.dataset.col;
-      if(col==='_patterns') return;
-      if(sortCol===col) sortAsc=!sortAsc; else {sortCol=col;sortAsc=true}
-      renderTable();
-    });
-  });
-}
-renderTable();
-
-/* ── Knowledge Graph (force-directed on Canvas) ────────── */
-const canvas = document.getElementById('kg-canvas');
-const ctx = canvas.getContext('2d');
-let W, H;
-function resize(){
-  const rect = canvas.parentElement.getBoundingClientRect();
-  W = canvas.width = rect.width - 56;
-  H = canvas.height = 420;
-}
-resize();
-window.addEventListener('resize',resize);
-
-// Build nodes & edges
-const nodes = [], edges = [];
-const nodeMap = {};
-let nid = 0;
-
-// Incident nodes
-incidents.forEach(inc=>{
-  const id = 'inc-'+inc.incident_id;
-  nodeMap[id] = nid;
-  nodes.push({id:nid++, label:inc.incident_id, type:'incident', severity:inc.severity, title:inc.title,
-    x:W*(.2+Math.random()*.6), y:H*(.2+Math.random()*.6), vx:0, vy:0});
-});
-
-// Pattern nodes (deduplicate)
-const patSeen = {};
-incidents.forEach(inc=> inc.patterns.forEach(p=>{
-  if(patSeen[p.pattern_id]) return;
-  patSeen[p.pattern_id] = true;
-  const id = 'pat-'+p.pattern_id;
-  nodeMap[id] = nid;
-  nodes.push({id:nid++, label:p.name.split(' ').slice(0,3).join(' '), type:'pattern', risk:p.risk_level,
-    x:W*(.2+Math.random()*.6), y:H*(.2+Math.random()*.6), vx:0, vy:0});
-}));
-
-// Service nodes (deduplicate)
-const svcSeen = {};
-incidents.forEach(inc=> inc.affected_services.forEach(s=>{
-  if(svcSeen[s]) return;
-  svcSeen[s] = true;
-  const id = 'svc-'+s;
-  nodeMap[id] = nid;
-  nodes.push({id:nid++, label:s, type:'service',
-    x:W*(.2+Math.random()*.6), y:H*(.2+Math.random()*.6), vx:0, vy:0});
-}));
-
-// Edges: incident <-> pattern
-incidents.forEach(inc=> inc.patterns.forEach(p=>{
-  edges.push({source:nodeMap['inc-'+inc.incident_id], target:nodeMap['pat-'+p.pattern_id], type:'pattern'});
-}));
-// Edges: incident <-> service
-incidents.forEach(inc=> inc.affected_services.forEach(s=>{
-  edges.push({source:nodeMap['inc-'+inc.incident_id], target:nodeMap['svc-'+s], type:'service'});
-}));
-// Edges: related incidents
-incidents.forEach(inc=> inc.related_incidents.forEach(rid=>{
-  const a=nodeMap['inc-'+inc.incident_id], b=nodeMap['inc-'+rid];
-  if(a!==undefined && b!==undefined) edges.push({source:a, target:b, type:'related'});
-}));
-
-// Force simulation
-const DAMPING = 0.92, REPULSION = 2800, SPRING = 0.008, REST = 120, GRAVITY = 0.015;
-let dragging = null, dragOff = {x:0,y:0}, hoveredNode = null;
-
-function simulate(){
-  // Repulsion
-  for(let i=0;i<nodes.length;i++){
-    for(let j=i+1;j<nodes.length;j++){
-      let dx=nodes[j].x-nodes[i].x, dy=nodes[j].y-nodes[i].y;
-      let dist=Math.sqrt(dx*dx+dy*dy)||1;
-      let f=REPULSION/(dist*dist);
-      let fx=dx/dist*f, fy=dy/dist*f;
-      nodes[i].vx-=fx; nodes[i].vy-=fy;
-      nodes[j].vx+=fx; nodes[j].vy+=fy;
-    }
-  }
-  // Springs
-  edges.forEach(e=>{
-    const a=nodes[e.source], b=nodes[e.target];
-    let dx=b.x-a.x, dy=b.y-a.y;
-    let dist=Math.sqrt(dx*dx+dy*dy)||1;
-    let f=SPRING*(dist-REST);
-    let fx=dx/dist*f, fy=dy/dist*f;
-    a.vx+=fx; a.vy+=fy;
-    b.vx-=fx; b.vy-=fy;
-  });
-  // Gravity toward center
-  nodes.forEach(n=>{
-    n.vx+=(W/2-n.x)*GRAVITY;
-    n.vy+=(H/2-n.y)*GRAVITY;
-  });
-  // Integration
-  nodes.forEach(n=>{
-    if(n===dragging) return;
-    n.vx*=DAMPING; n.vy*=DAMPING;
-    n.x+=n.vx; n.y+=n.vy;
-    n.x=Math.max(30,Math.min(W-30,n.x));
-    n.y=Math.max(30,Math.min(H-30,n.y));
-  });
-}
-
-function nodeRadius(n){ return n.type==='incident'?22:n.type==='pattern'?16:13; }
-function nodeColor(n){
-  if(n.type==='incident') return sevColor(n.severity);
-  if(n.type==='pattern') return '#7B61FF';
-  return '#00E5FF';
-}
-function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`}
-
-function draw(){
-  ctx.clearRect(0,0,W,H);
-
-  // Edges
-  edges.forEach(e=>{
-    const a=nodes[e.source], b=nodes[e.target];
-    ctx.beginPath();
-    ctx.moveTo(a.x,a.y);
-    ctx.lineTo(b.x,b.y);
-    ctx.strokeStyle = e.type==='related'?'rgba(255,51,102,.35)':e.type==='pattern'?'rgba(123,97,255,.3)':'rgba(0,229,255,.25)';
-    ctx.lineWidth = e.type==='related'?2:1.2;
-    if(e.type==='related'){ctx.setLineDash([5,4])} else {ctx.setLineDash([])}
-    ctx.stroke();
-    ctx.setLineDash([]);
-  });
-
-  // Nodes
-  nodes.forEach(n=>{
-    const r = nodeRadius(n);
-    const col = nodeColor(n);
-    const isHover = hoveredNode === n;
-
-    // Glow
-    if(isHover || n.type==='incident'){
-      ctx.beginPath();
-      ctx.arc(n.x,n.y,r+(isHover?8:4),0,Math.PI*2);
-      ctx.fillStyle = hexToRgba(col, 0.12);
-      ctx.fill();
-    }
-
-    // Circle
-    ctx.beginPath();
-    ctx.arc(n.x,n.y,r,0,Math.PI*2);
-    const grad = ctx.createRadialGradient(n.x-r*.3,n.y-r*.3,r*.1,n.x,n.y,r);
-    grad.addColorStop(0,col);
-    grad.addColorStop(1,hexToRgba(col, 0.7));
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.strokeStyle = isHover?'#fff':'rgba(255,255,255,.15)';
-    ctx.lineWidth = isHover?2.5:1;
-    ctx.stroke();
-
-    // Label
-    ctx.fillStyle = '#e8ecf4';
-    ctx.font = (n.type==='incident'?'bold 11px':'10px')+' "Segoe UI",system-ui,sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    if(n.type==='incident'){
-      ctx.fillText(n.label,n.x,n.y);
-    } else {
-      ctx.fillText(n.label,n.x,n.y+r+12);
-    }
-  });
-
-  // Tooltip for hovered node
-  if(hoveredNode){
-    const n = hoveredNode;
-    const txt = n.title || n.label;
-    ctx.font = '12px "Segoe UI",system-ui,sans-serif';
-    const tw = ctx.measureText(txt).width;
-    const tx = Math.min(n.x - tw/2 - 8, W - tw - 24);
-    const ty = n.y - nodeRadius(n) - 32;
-    ctx.fillStyle = 'rgba(16,19,28,.94)';
-    ctx.strokeStyle = 'rgba(123,97,255,.6)';
-    ctx.lineWidth = 1;
-    roundRect(ctx, tx, ty, tw+16, 26, 6);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = '#e8ecf4';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(txt, tx+8, ty+13);
-  }
-}
-
-function roundRect(ctx,x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);
-  ctx.closePath();
-}
-
-function findNode(mx,my){
-  for(let i=nodes.length-1;i>=0;i--){
-    const n=nodes[i], dx=mx-n.x, dy=my-n.y;
-    if(dx*dx+dy*dy < nodeRadius(n)*nodeRadius(n)*1.5) return n;
-  }
-  return null;
-}
-
-function getMousePos(e){
-  const rect=canvas.getBoundingClientRect();
-  return {x:e.clientX-rect.left, y:e.clientY-rect.top};
-}
-
-canvas.addEventListener('mousedown',e=>{
-  const p=getMousePos(e);
-  const n=findNode(p.x,p.y);
-  if(n){dragging=n;dragOff={x:p.x-n.x,y:p.y-n.y};n.vx=0;n.vy=0}
-});
-canvas.addEventListener('mousemove',e=>{
-  const p=getMousePos(e);
-  if(dragging){dragging.x=p.x-dragOff.x;dragging.y=p.y-dragOff.y}
-  hoveredNode = findNode(p.x,p.y);
-  canvas.style.cursor = hoveredNode?'pointer':'grab';
-});
-canvas.addEventListener('mouseup',()=>{dragging=null});
-canvas.addEventListener('mouseleave',()=>{dragging=null;hoveredNode=null});
-
-// Touch support
-canvas.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];const p=getMousePos(t);const n=findNode(p.x,p.y);if(n){dragging=n;dragOff={x:p.x-n.x,y:p.y-n.y}}},{passive:false});
-canvas.addEventListener('touchmove',e=>{e.preventDefault();if(dragging){const t=e.touches[0];const p=getMousePos(t);dragging.x=p.x-dragOff.x;dragging.y=p.y-dragOff.y}},{passive:false});
-canvas.addEventListener('touchend',()=>{dragging=null});
-
-function loop(){simulate();draw();requestAnimationFrame(loop)}
-loop();
-
-})();
-</script>
 </body>
 </html>
